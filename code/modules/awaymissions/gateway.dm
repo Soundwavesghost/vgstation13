@@ -12,7 +12,7 @@ var/list/gateways = list() //List containing the gateways on away missions
 /obj/machinery/gateway/initialize()
 	update_icon()
 	if(dir == 2)
-		density = 0
+		setDensity(FALSE)
 
 
 /obj/machinery/gateway/update_icon()
@@ -36,6 +36,12 @@ var/list/gateways = list() //List containing the gateways on away missions
 	var/ready = 0				//have we got all the parts for a gateway?
 	var/wait = 0				//this just grabs world.time at world start
 	var/obj/machinery/gateway/centeraway/awaygate = null
+
+/obj/machinery/gateway/centerstation/proc/admin_active()
+	detect()
+	initialize()
+	wait = 0
+	toggleon()
 
 /obj/machinery/gateway/centerstation/initialize()
 	update_icon()
@@ -266,7 +272,10 @@ obj/machinery/gateway/centerstation/process()
 			calibrated = 1
 			return
 
-/obj/machinery/gateway/centerstation/attack_ghost(mob/user as mob)
+/obj/machinery/gateway/centerstation/attack_ghost(mob/user)
+	if (isAdminGhost(user) && existing_away_missions.len)
+		admin_active()
+		return
 	return src.Bumped(user)
 
 /obj/machinery/gateway/centeraway/attack_ghost(mob/user as mob)

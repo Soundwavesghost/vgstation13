@@ -168,7 +168,6 @@ var/global/list/bombermangear = list()
 	if((!parent || !parent.arena) && bomberman_destroy)
 		destroy_environnement = 1
 
-
 	if(line_dir)
 		var/turf/T1 = get_turf(src)
 		step(src,line_dir)
@@ -374,7 +373,7 @@ obj/structure/bomberflame/Destroy()
 			var/obj/structure/grille/grille = obstacle
 			grille.broken = 1
 			grille.icon_state = "[initial(grille.icon_state)]-b"
-			grille.density = 0
+			grille.setDensity(FALSE)
 			if(prob(35))
 				var/turf/T = grille.loc
 				T.spawn_powerup()
@@ -474,10 +473,10 @@ obj/structure/bomberflame/Destroy()
 	icon_state = "hardwall"
 	opacity = 0
 
-/turf/unsimulated/wall/ex_act(severity)
+/turf/unsimulated/wall/bomberman/ex_act(severity)
 	return
 
-/turf/unsimulated/wall/cultify()
+/turf/unsimulated/wall/bomberman/cultify()
 	return
 
 ///////////////////////////////POWER-UPS//////////////////////////////
@@ -536,10 +535,10 @@ obj/structure/bomberflame/Destroy()
 
 /obj/structure/powerup/Bumped(M as mob|obj)	//kick bomb
 	if (istype(M, /mob/living) || istype(M, /obj/mecha) || istype(M, /obj/structure/bed/chair/) || istype(M, /obj/structure/bomberflame))
-		density = 0
+		setDensity(FALSE)
 		step(M, get_dir(M,src))
 		spawn(1)	//to prevent an infinite loop when a player with no BBD is trying to walk over a tile with at least two power-ups.
-			density = 1
+			setDensity(TRUE)
 	var/obj/item/weapon/bomberman/dispenser = locate() in M
 	if (dispenser)
 		apply_power(dispenser)
@@ -551,7 +550,7 @@ obj/structure/bomberflame/Destroy()
 	..()
 
 /obj/structure/powerup/proc/apply_power(var/obj/item/weapon/bomberman/dispenser)
-	playsound(get_turf(src), 'sound/bomberman/powerup.ogg', 50, 1)
+	playsound(src, 'sound/bomberman/powerup.ogg', 50, 1)
 	qdel(src)
 	return
 
@@ -594,7 +593,7 @@ obj/structure/bomberflame/Destroy()
 	return
 
 /obj/structure/powerup/skull/apply_power(var/obj/item/weapon/bomberman/dispenser)
-	playsound(get_turf(src), 'sound/bomberman/disease.ogg', 50, 1)
+	playsound(src, 'sound/bomberman/disease.ogg', 50, 1)
 	var/list/diseases = list(
 		"Low Power Disease",
 		"Constipation ",
@@ -662,11 +661,11 @@ obj/structure/bomberflame/Destroy()
 	name = "Bomberman's suit"
 	desc = "Doesn't actually make you immune to bombs!"
 	icon_state = "bomberman"
-	item_state = "bomberman"
+	item_state = "bomberman_suit"
 	slowdown = NO_SLOWDOWN
 	armor = list(melee = 0, bullet = 0, laser = 0,energy = 0, bomb = 100, bio = 0, rad = 0)
 	siemens_coefficient = 0
-	clothing_flags = ONESIZEFITSALL
+	clothing_flags = ONESIZEFITSALL|CONTAINPLASMAMAN
 	max_heat_protection_temperature = ARMOR_MAX_HEAT_PROTECTION_TEMPERATURE
 	gas_transfer_coefficient = 0.01
 	permeability_coefficient = 0.01
@@ -691,11 +690,20 @@ obj/structure/bomberflame/Destroy()
 	name = "Bomberman head"
 	desc = "Terrorism has never looked so adorable."
 	icon_state = "bomberman"
-	item_state = "bomberman"
+	item_state = "bomberman_helmet"
 	armor = list(melee = 0, bullet = 0, laser = 0,energy = 0, bomb = 100, bio = 0, rad = 0)
 	siemens_coefficient = 0
 	species_restricted = list("exclude")
+	clothing_flags = CONTAINPLASMAMAN
 	var/never_removed = 1
+
+/obj/item/clothing/head/helmet/space/bomberman/equipped(mob/living/carbon/human/H, head)
+	if(istype(H) && H.get_item_by_slot(head) == src)
+		H.mutations.Add(M_NO_BREATH)
+
+/obj/item/clothing/head/helmet/space/bomberman/unequipped(mob/living/carbon/human/user, var/from_slot = null)
+	if(from_slot == slot_head && istype(user))
+		user.mutations.Remove(M_NO_BREATH)
 
 /obj/item/clothing/head/helmet/space/bomberman/New()
 	..()
@@ -754,7 +762,8 @@ var/global/list/arena_spawnpoints = list()//used by /mob/dead/observer/Logout()
 		return
 	center = a_center
 	name += " #[rand(1,999)]"
-	open(size,user)
+	if (!open(size,user))
+		return // We didn't open, so let's leave there
 	arenas += src
 	status = ARENA_AVAILABLE
 
@@ -765,7 +774,8 @@ var/global/list/arena_spawnpoints = list()//used by /mob/dead/observer/Logout()
 		planners += P
 
 /datum/bomberman_arena/Destroy()
-	..()
+	. = ..()
+	close()
 	arena = null
 	under = null
 	center = null
@@ -800,8 +810,8 @@ var/global/list/arena_spawnpoints = list()//used by /mob/dead/observer/Logout()
 		C.name = name
 		C.c_tag = name
 		C.network = list(
-			"thunder",	//entertainment monitors
-			"SS13",		//security monitors
+			CAMERANET_THUNDER,	//entertainment monitors
+			CAMERANET_SS13,		//security monitors
 			)
 
 		var/obj/structure/planner/pencil = new(center, src)
@@ -955,25 +965,21 @@ var/global/list/arena_spawnpoints = list()//used by /mob/dead/observer/Logout()
 
 		spawn(0)
 			A.contents.Add(turfs)
-			for(var/turf/F in turfs)
-				for(var/atom/movable/AM in F)
-					AM.areaMaster = get_area_master(F)
-
-
 
 		message_admins("[key_name_admin(user.client)] created a \"[size]\" Bomberman arena at [center.loc.name] ([center.x],[center.y],[center.z]) (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[center.x];Y=[center.y];Z=[center.z]'>JMP</A>)")
 		log_game("[key_name_admin(user.client)] created a \"[size]\" Bomberman arena at [center.loc.name] ([center.x],[center.y],[center.z]) ")
 
-		for(var/mob/dead/observer/O in observers)
+		for(var/mob/dead/observer/O in player_list)
 			to_chat(O, "<spawn class='notice'><b>[user.client.key] created a \"[size]\" Bomberman arena at [center.loc.name]. <A HREF='?src=\ref[O];jumptoarenacood=1;targetarena=\ref[src]'>Click here to JUMP to it.</A></b></span>")
-
+		return 1
 	else
 		qdel(src)
+		return 0
 
 
 
-/datum/bomberman_arena/proc/spawn_player(var/turf/T)
-	var/mob/living/carbon/human/M = new(T)
+/datum/bomberman_arena/proc/spawn_player(var/turf/T, var/mob/M)
+	M.forceMove(T)
 	M.name = "Bomberman #[rand(1,999)]"
 	M.real_name = M.name
 	var/list/randomhexes = list(
@@ -1008,6 +1014,7 @@ var/global/list/arena_spawnpoints = list()//used by /mob/dead/observer/Logout()
 	B.destroy_environnement = 0
 	M.equip_to_slot_or_del(B, slot_s_store)
 	bombsuit.slowdown = HARDSUIT_SLOWDOWN_LOW
+	M.mind.special_role = BOMBERMAN
 	for(var/obj/item/clothing/C in M)
 		C.canremove = 0
 		if(violence)
@@ -1041,18 +1048,15 @@ var/global/list/arena_spawnpoints = list()//used by /mob/dead/observer/Logout()
 		if(!isobserver(client_mob))
 			continue
 
-		var/mob/living/carbon/human/M = spawn_player(S.spawnpoint)
-		dress_player(M)
-		M.stunned = 3
-		M.ckey = C.ckey
-		gladiators += M
+		var/mob/bomber = client_mob.transmogrify(/mob/living/carbon/human/, TRUE)
+		spawn_player(S.spawnpoint, bomber)
+		dress_player(bomber)
+		bomber.stunned = 3
+		gladiators += bomber
 
-		if(S.player_mob)
-			qdel(S.player_mob)
+		S.player_mob = bomber
 
-		S.player_mob = M
-
-		if(S.player_mob.ckey)
+		if(bomber.ckey)
 			readied++
 
 	if(readied < min_number_of_players)
@@ -1062,6 +1066,7 @@ var/global/list/arena_spawnpoints = list()//used by /mob/dead/observer/Logout()
 			to_chat(M, "<span class='danger'>Not enough players. Round canceled.</span>")
 
 		for(var/mob/M in gladiators)
+			M.completely_untransmogrify()
 			qdel(M)
 
 		gladiators = list()
@@ -1080,11 +1085,11 @@ var/global/list/arena_spawnpoints = list()//used by /mob/dead/observer/Logout()
 		to_chat(M, "<b>READY?</b>")
 
 	for(var/obj/machinery/computer/security/telescreen/entertainment/E in machines)
-		E.visible_message("<span style='color:grey'>[bicon(E)] \The [E] brightens as it appears that a round is starting in [name].</span>")
+		E.visible_message("<span class='notice'>[bicon(E)] \The [E] brightens as it appears that a round is starting in [name].</span>")
 		flick("entertainment_arena",E)
 
 	for(var/mob/dead/observer/O in observers)
-		to_chat(O, "<b>A round has begun in <A HREF='?src=\ref[O];jumptoarenacood=1;X=[center.x];Y=[center.y];Z=[center.z]'>[name]</A>!</b>")
+		to_chat(O, "<b>A round has begun in <A HREF='?src=\ref[O];jumptoarenacood=1;targetarena=\ref[src]'>[name]</A>!</b>")
 
 	sleep(40)
 
@@ -1143,11 +1148,12 @@ var/global/list/arena_spawnpoints = list()//used by /mob/dead/observer/Logout()
 	for(var/obj/item/clothing/C in arena)
 		qdel(C)
 
-	for(var/obj/item/weapon/organ/O in arena)//gibs
+	for(var/obj/item/organ/external/O in arena)//gibs
 		qdel(O)
 
 	for(var/mob/living/M in gladiators)
 		if(M)
+			M.completely_untransmogrify()
 			qdel(M)	//qdel doesn't work nicely with mobs
 	gladiators = list()
 
@@ -1235,7 +1241,7 @@ var/global/list/arena_spawnpoints = list()//used by /mob/dead/observer/Logout()
 			qdel(M)	//qdel doesn't work nicely with mobs
 	gladiators = list()
 
-	for(var/obj/item/weapon/organ/O in arena)//gibs
+	for(var/obj/item/organ/external/O in arena)//gibs
 		qdel(O)
 
 	for(var/obj/effect/decal/cleanable/C in arena)
@@ -1250,8 +1256,6 @@ var/global/list/arena_spawnpoints = list()//used by /mob/dead/observer/Logout()
 
 	under.contents.Add(turfs)
 	for(var/turf/T in turfs)
-		for(var/atom/movable/AM in T)
-			AM.areaMaster = get_area_master(T)
 		if(open_space && (under.name == "Space"))
 			T.ChangeTurf(T.get_underlying_turf())
 		else
@@ -1301,6 +1305,8 @@ var/global/list/arena_spawnpoints = list()//used by /mob/dead/observer/Logout()
 
 /datum/bomberman_arena/proc/planner(var/size,mob/user)
 	var/choice = 0
+	if (!user)
+		return TRUE
 	switch(size)
 		if("15x13 (2 players)")
 			var/obj/structure/planner/pencil = new(center, src)
@@ -1362,7 +1368,7 @@ var/global/list/arena_spawnpoints = list()//used by /mob/dead/observer/Logout()
 					choice = 1
 	for (var/obj/structure/planner/P in planners)
 		qdel(P)
-	return	choice
+	return choice
 
 /obj/structure/planner
 	name = "arena planner"
@@ -1378,8 +1384,8 @@ var/global/list/arena_spawnpoints = list()//used by /mob/dead/observer/Logout()
 	arena = a
 
 /obj/structure/planner/Destroy()
+	arena.planners -= src
 	..()
-	arena = null
 
 /obj/structure/planner/ex_act(severity)
 	return

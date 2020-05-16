@@ -33,8 +33,14 @@ default behaviour is:
 
 	strength += (M_HULK in src.mutations)
 	strength += (M_STRONG in src.mutations)
+	if(reagents)
+		strength += (reagents.get_sportiness() >= 5)
 
 	. = strength
 
 /mob/living/proc/feels_pain()
 	return TRUE
+
+/mob/living/proc/isDeadorDying()	//returns 1 if dead or in crit
+	if(stat == DEAD || health <= config.health_threshold_crit)
+		return TRUE

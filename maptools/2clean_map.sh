@@ -1,15 +1,17 @@
 export MAPFILE_TG=tgstation.dmm
 export MAPFILE_EFF=defficiency.dmm
-export MAPFILE_TAX=taxistation.dmm
 export MAPFILE_MS=metaclub.dmm
-export MAPFILE_MIN=ministation.dmm
-export MAPFILE_BAG=bagelstation.dmm
+export MAPFILE_PCK=packedstation.dmm
+export MAPFILE_ROID=RoidStation.dmm
+export MAPFILE_SNAXI=snaxi.dmm
+export MAPFILE_WHEEL=wheelstation.dmm
 
 java -jar MapPatcher.jar -clean ../maps/$MAPFILE_TG.backup ../maps/$MAPFILE_TG ../maps/$MAPFILE_TG
 java -jar MapPatcher.jar -clean ../maps/$MAPFILE_EFF.backup ../maps/$MAPFILE_EFF ../maps/$MAPFILE_EFF
-java -jar MapPatcher.jar -clean ../maps/$MAPFILE_TAX.backup ../maps/$MAPFILE_TAX ../maps/$MAPFILE_TAX
 java -jar MapPatcher.jar -clean ../maps/$MAPFILE_MS.backup ../maps/$MAPFILE_MS ../maps/$MAPFILE_MS
-java -jar MapPatcher.jar -clean ../maps/$MAPFILE_MIN.backup ../maps/$MAPFILE_MIN ../maps/$MAPFILE_MIN
-java -jar MapPatcher.jar -clean ../maps/$MAPFILE_BAG.backup ../maps/$MAPFILE_BAG ../maps/$MAPFILE_BAG
+java -jar MapPatcher.jar -clean ../maps/$MAPFILE_PCK.backup ../maps/$MAPFILE_PCK ../maps/$MAPFILE_PCK
+java -jar MapPatcher.jar -clean ../maps/$MAPFILE_ROID.backup ../maps/$MAPFILE_ROID ../maps/$MAPFILE_ROID
+java -jar MapPatcher.jar -clean ../maps/$MAPFILE_SNAXI.backup ../maps/$MAPFILE_SNAXI ../maps/$MAPFILE_SNAXI
+java -jar MapPatcher.jar -clean ../maps/$MAPFILE_WHEEL.backup ../maps/$MAPFILE_WHEEL ../maps/$MAPFILE_WHEEL
 
 read -n1 -r -p "Press any key to continue..." key

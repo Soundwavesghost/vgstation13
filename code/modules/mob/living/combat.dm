@@ -1,6 +1,10 @@
 /mob/living/proc/grab_mob(mob/living/target)
 	if(grab_check(target))
 		return
+
+	if (is_pacified(VIOLENCE_DEFAULT,target))
+		return
+
 	if(target.locked_to)
 		to_chat(src, "<span class='notice'>You cannot grab \the [target], \he is buckled in!</span>")
 		return
@@ -26,8 +30,8 @@
 /mob/living/proc/disarm_mob(mob/living/target)
 	return
 
-/mob/living/proc/disarmed_by(mob/living/disarmer)
-	return
+/mob/living/proc/disarmed_by(mob/living/disarmer) //For if you want to do something specific on disarm and nothing else.
+	return FALSE
 
 /mob/living/proc/break_grabs(mob/living/target)
 	for(var/obj/item/weapon/grab/G in target.held_items)
@@ -48,8 +52,11 @@
 		target.stop_pulling()
 		return TRUE
 
-/mob/living/proc/get_unarmed_damage(mob/living/victim)
+/mob/living/proc/get_unarmed_damage(var/atom/victim)
 	return rand(0,10)
+
+/mob/living/proc/get_unarmed_sharpness(mob/living/victim)
+	return 0
 
 /mob/living/proc/get_unarmed_verb(mob/living/victim)
 	return "hits"
@@ -75,7 +82,7 @@
 	if(miss_sound)
 		playsound(loc, miss_sound, 25, 1, -1)
 
-	visible_message("<span class='danger'>[src] misses [target]!</span>")
+	visible_message("<span class='borange'>[src] misses [target]!</span>")
 	return TRUE
 
 /mob/living/proc/get_attack_message(mob/living/target, attack_verb)
@@ -86,6 +93,9 @@
 	return 1
 
 /mob/living/proc/unarmed_attack_mob(mob/living/target)
+	if(is_pacified(VIOLENCE_DEFAULT,target))
+		return
+
 	var/damage = get_unarmed_damage(target)
 
 	if(!damage)
@@ -96,6 +106,7 @@
 	var/datum/organ/external/affecting = target.get_organ(zone)
 	var/armor_block = target.run_armor_check(affecting, "melee", modifier = get_armor_modifier(target))
 	var/damage_type = get_unarmed_damage_type(target)
+	var/sharpness = get_unarmed_sharpness(target)
 	var/attack_verb = get_unarmed_verb(target)
 	var/attack_sound = get_unarmed_hit_sound(target)
 
@@ -105,12 +116,20 @@
 	visible_message(get_attack_message(target, attack_verb))
 	do_attack_animation(target, src)
 
-	var/damage_done = target.apply_damage(damage, damage_type, affecting, armor_block)
+	var/damage_done
+	if(ishuman(target))
+		damage_done = target.apply_damage(damage, damage_type, affecting, armor_block, sharpness)
+	else
+		damage += sharpness
+		damage_done = target.apply_damage(damage, damage_type, affecting, armor_block)
+
+	if(target.BrainContainer)
+		target.BrainContainer.SendSignal(COMSIG_ATTACKEDBY, list("assailant"=src,"damage"=damage_done))
 	target.unarmed_attacked(src, damage, damage_type, zone)
 	after_unarmed_attack(target, damage, damage_type, affecting, armor_block)
 
+	INVOKE_EVENT(on_touched, list("user" = target, "unarmed attacked by" = src))
 	add_logs(src, target, "attacked ([damage_done]dmg)", admin = (src.ckey && target.ckey) ? TRUE : FALSE) //Only add this to the server logs if both mobs were controlled by player
-
 	return damage_done
 
 /mob/living/proc/after_unarmed_attack(mob/living/target, damage, damage_type, organ, armor)

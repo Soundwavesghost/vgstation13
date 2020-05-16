@@ -32,7 +32,7 @@ var/list/obj/machinery/power/photocollector/photocollector_list = list()
 
 /obj/machinery/power/photocollector/process()
 	last_power = 0
-	if(!anchored || beams.len == 0)
+	if(!anchored || !beams || !beams.len)
 		return
 	var/avail_energy = 0
 	for(var/obj/effect/beam/emitter/EB in beams)
@@ -43,14 +43,14 @@ var/list/obj/machinery/power/photocollector/photocollector_list = list()
 		add_avail(power_produced)
 		last_power = power_produced
 
-/obj/machinery/power/photocollector/wrenchAnchor(mob/user)
-	if(..() == 1)
-		if(anchored)
-			connect_to_network()
-		else
-			disconnect_from_network()
-		return 1
-	return -1
+/obj/machinery/power/photocollector/wrenchAnchor(var/mob/user, var/obj/item/I)
+	. = ..()
+	if(!.)
+		return
+	if(anchored)
+		connect_to_network()
+	else
+		disconnect_from_network()
 
 /obj/machinery/power/photocollector/attackby(obj/item/W, mob/user)
 	if(..())

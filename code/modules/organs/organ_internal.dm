@@ -14,9 +14,21 @@
 	var/removed_type //When removed, forms this object.
 	var/list/transplant_data // Blood DNA and colour of donor
 	var/rejecting            // Is this organ already being rejected?
-	var/obj/item/organ/organ_holder
+	var/obj/item/organ/internal/organ_holder
 	var/datum/dna/owner_dna
 
+
+/datum/organ/internal/Destroy()
+	if(owner) //Just going to assume these lists are here because we have bigger problems than a runtime if they aren't
+		owner.internal_organs -= src
+		owner.internal_organs_by_name -= organ_type
+		var/datum/organ/external/E = owner.organs_by_name[parent_organ] //Fuck this setup
+		E.internal_organs -= src
+		owner = null
+	if(organ_holder)
+		organ_holder.organ_data = null
+		organ_holder = null
+	..()
 
 /datum/organ/internal/Copy()
 	var/datum/organ/internal/I = ..()
@@ -194,44 +206,39 @@
 //All the internal organs without specific code to them are below
 //Hopefully this will be filled in soon ?
 
-/datum/organ/internal/heart //This is not set to vital because death immediately occurs in blood.dm if it is removed.
-	name = "heart"
-	parent_organ = LIMB_CHEST
-	organ_type = "heart"
-	removed_type = /obj/item/organ/heart
-
-/datum/organ/internal/kidney
-	name = "kidneys"
-	parent_organ = LIMB_GROIN
-	organ_type = "kidneys"
-	removed_type = /obj/item/organ/kidneys
-
 /datum/organ/internal/brain
 	name = "brain"
 	parent_organ = LIMB_HEAD
 	organ_type = "brain"
-	removed_type = /obj/item/organ/brain
+	removed_type = /obj/item/organ/internal/brain
 	vital = 1
 
 /datum/organ/internal/brain/ash
-	removed_type = /obj/item/organ/brain/ash
+	removed_type = /obj/item/organ/internal/brain/ash
 
 /datum/organ/internal/brain/slime_core
-	removed_type = /obj/item/organ/brain/slime_core
+	removed_type = /obj/item/organ/internal/brain/slime_core
+
+/datum/organ/internal/brain/mushroom_brain
+	removed_type = /obj/item/organ/internal/brain/mushroom
 
 /datum/organ/internal/appendix
 	name = "appendix"
 	parent_organ = LIMB_GROIN
 	organ_type = "appendix"
-	removed_type = /obj/item/organ/appendix
+	removed_type = /obj/item/organ/internal/appendix
 
 /datum/organ/internal/proc/remove(var/mob/user, var/quiet=0)
-
-
 	if(!removed_type)
 		return 0
+	var/obj/item/organ/internal/removed_organ
 
-	var/obj/item/organ/removed_organ = new removed_type(get_turf(user))
+	if(isatom(removed_type))
+		removed_organ = removed_type
+		removed_organ.forceMove(get_turf(user))
+		removed_type = null
+	else
+		removed_organ = new removed_type(get_turf(user))
 
 	if(istype(removed_organ))
 		removed_organ.organ_data = src
@@ -239,6 +246,7 @@
 			removed_organ.had_mind = !isnull(owner.mind)
 		removed_organ.update()
 		organ_holder = removed_organ
+		removed_organ.stabilized = FALSE
 	return removed_organ
 
 /datum/organ/internal/send_to_past(var/duration)

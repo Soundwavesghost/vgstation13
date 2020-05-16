@@ -145,12 +145,8 @@ var/list/diseases = typesof(/datum/disease) - /datum/disease
 
 	if(isturf(source.loc))
 		for(var/mob/living/carbon/M in oview(check_range, source))
-			if(isturf(M.loc))
-				if(AStar(source.loc, M.loc, /turf/proc/AdjacentTurfs, /turf/proc/Distance, check_range))
-					M.contract_disease(src, 0, 1, force_spread)
-
-	return
-
+			if(isturf(M.loc) && quick_AStar(source.loc, M, /turf/proc/AdjacentTurfs, /turf/proc/Distance, check_range, reference="\ref[src]"))
+				M.contract_disease(src, 0, 1, force_spread)
 
 /datum/disease/proc/process()
 	set waitfor = FALSE
@@ -211,8 +207,3 @@ var/list/diseases = typesof(/datum/disease) - /datum/disease
 
 /datum/disease/proc/Copy(var/process = 0)
 	return new type(process, src)
-
-/*
-/datum/disease/Destroy()
-	active_diseases.Remove(src)
-*/

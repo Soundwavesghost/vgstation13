@@ -23,10 +23,11 @@
 		"/obj/item/weapon/folder",
 		"/obj/item/weapon/pen",
 		"/obj/item/weapon/folder",
-		"/obj/item/weapon/clipboard",
+		"/obj/item/weapon/storage/bag/clipboard",
 		"/obj/item/weapon/anodevice",
 		"/obj/item/clothing/glasses",
 		"/obj/item/weapon/wrench",
 		"/obj/item/weapon/storage/box/excavation",
 		"/obj/item/weapon/anobattery",
-		"/obj/item/weapon/weldingtool")
+		"/obj/item/weapon/weldingtool",
+		"/obj/item/device/xenoarch_scanner")

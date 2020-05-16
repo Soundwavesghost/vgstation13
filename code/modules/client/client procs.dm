@@ -107,13 +107,13 @@
 //This stops files larger than UPLOAD_LIMIT being sent from client to server via input(), client.Import() etc.
 /client/AllowUpload(filename, filelength)
 	if(filelength > UPLOAD_LIMIT)
-		to_chat(src, "<font color='red'>Error: AllowUpload(): File Upload too large. Upload Limit: [UPLOAD_LIMIT/1024]KiB.</font>")
+		to_chat(src, "<span class='red'>Error: AllowUpload(): File Upload too large. Upload Limit: [UPLOAD_LIMIT/1024]KiB.</span>")
 		return 0
 /*	//Don't need this at the moment. But it's here if it's needed later.
 	//Helps prevent multiple files being uploaded at once. Or right after eachother.
 	var/time_to_wait = fileaccess_timer - world.time
 	if(time_to_wait > 0)
-		to_chat(src, "<font color='red'>Error: AllowUpload(): Spam prevention. Please wait [round(time_to_wait/10)] seconds.</font>")
+		to_chat(src, "<span class='red'>Error: AllowUpload(): Spam prevention. Please wait [round(time_to_wait/10)] seconds.</span>")
 		return 0
 	fileaccess_timer = world.time + FTPDELAY	*/
 	return 1
@@ -127,8 +127,7 @@
 	chatOutput = new /datum/chatOutput(src) // Right off the bat.
 	// world.log << "Done creating chatOutput"
 	if(config)
-		winset(src, null, "outputwindow.output.style=[config.world_style_config];")
-		winset(src, null, "window1.msay_output.style=[config.world_style_config];") // it isn't possible to set two window elements in the same winset so we need to call it for each element we're assigning a stylesheet.
+		winset(src, null, "window1.msay_output.style=[config.world_style_config];")
 	else
 		to_chat(src, "<span class='warning'>The stylesheet wasn't properly setup call an administrator to reload the stylesheet or relog.</span>")
 
@@ -186,6 +185,7 @@
 	prefs.client = src
 	prefs.initialize_preferences(client_login = 1)
 
+
 	. = ..()	//calls mob.Login()
 	chatOutput.start()
 
@@ -214,7 +214,9 @@
 		to_chat(src, "<span class='info'>Changelog has changed since your last visit.</span>")
 
 	//Set map label to correct map name
-	winset(src, "rpane.map", "text=\"[map.nameLong]\"")
+	winset(src, "rpane.mapb", "text=\"[map.nameLong]\"")
+
+	clear_credits() //Otherwise these persist if the client doesn't close the game between rounds
 
 	// Notify scanners.
 	INVOKE_EVENT(on_login,list(
@@ -228,6 +230,12 @@
 	if(!tooltips)
 		tooltips = new /datum/tooltip(src)
 
+	if(holder && prefs.toggles & AUTO_DEADMIN)
+		message_admins("[src] was automatically de-admined.")
+		deadmin()
+		verbs += /client/proc/readmin
+		deadmins += ckey
+		to_chat(src, "<span class='interface'>You are now de-admined.</span>")
 	//////////////
 	//DISCONNECT//
 	//////////////
@@ -371,21 +379,28 @@
 
 	// Preload the crew monitor. This needs to be done due to BYOND bug http://www.byond.com/forum/?post=1487244
 	//The above bug report thing doesn't exist anymore so uh, whatever.
-	spawn
-		send_html_resources()
+	spawn()
+		if(src in clients) //Did we log out before we reached this part of the function?
+			send_html_resources()
 
 	// Send NanoUI resources to this client
-	spawn nanomanager.send_resources(src)
+	spawn()
+		if(src in clients) //Did we log out before we reached this part of the function?
+			nanomanager.send_resources(src)
+
+// Sends resources to the client asynchronously.
+/client/proc/preload_resource(var/rsc)
+	Export("##action=preload_rsc", rsc)
 
 
 /client/proc/send_html_resources()
-	if(crewmonitor && minimapinit)
-		crewmonitor.sendResources(src)
 	if(adv_camera && minimapinit)
 		adv_camera.sendResources(src)
 	while(!vote || !vote.interface)
 		sleep(1)
 	vote.interface.sendAssets(src)
+	var/datum/asset/simple/E = new/datum/asset/simple/emoji_list()
+	send_asset_list(src, E.assets)
 
 /proc/get_role_desire_str(var/rolepref)
 	switch(rolepref & ROLEPREF_VALMASK)
@@ -398,6 +413,15 @@
 		if(ROLEPREF_ALWAYS)
 			return "Always"
 	return "???"
+
+/client/proc/GetRolePrefs()
+	var/list/roleprefs = list()
+	for(var/role_id in antag_roles)
+		if(desires_role(role_id,FALSE))
+			roleprefs += role_id
+	if(!roleprefs.len)
+		return "none"
+	return english_list(roleprefs)
 
 /client/proc/desires_role(var/role_id, var/display_to_user=0)
 	var/role_desired = prefs.roles[role_id]
@@ -460,10 +484,11 @@ NOTE:  You will only be polled about this role once per round. To change your ch
 		if(parallax_initialized)
 			mob.hud_used.update_parallax_values()
 
-	for(var/obj/structure/window/W in view(view,mob))
-		if(W.one_way)
-			update_one_way_windows(view(view,mob))	//Updating the one-way window overlay if the client has one in view.
-			break
+	if(!istype(mob, /mob/dead/observer) && !(M_XRAY in mob.mutations))	//If they are neither an observer nor someone with X-ray vision
+		for(var/obj/structure/window/W in one_way_windows)
+			if(((W.x >= (mob.x - view)) && (W.x <= (mob.x + view))) && ((W.y >= (mob.y - view)) && (W.y <= (mob.y + view))))
+				update_one_way_windows(view(view,mob))	//Updating the one-way window overlay if the client has one in the range of its view.
+				break
 
 /client/proc/update_one_way_windows(var/list/v)		//Needed for one-way windows to work.
 	var/Image										//Code heavily cannibalized from a demo made by Byond member Shadowdarke.
@@ -504,3 +529,7 @@ NOTE:  You will only be polled about this role once per round. To change your ch
 	for(Image in ViewFilter-newimages)
 		images -= Image
 	ViewFilter = newimages
+
+/client/proc/handle_hear_voice(var/mob/origin)
+	if(prefs.hear_voicesound)
+		mob.playsound_local(get_turf(origin), get_sfx("voice"),50,1)

@@ -1,17 +1,17 @@
 /datum/artifact_effect/menagerie
 	effecttype = "menagerie"
-	effect = EFFECT_PULSE
+	effect = ARTIFACT_EFFECT_PULSE
 	effect_type = 5
 	var/static/list/possible_types = list()
 
 /datum/artifact_effect/menagerie/New()
 	..()
-	possible_types = existing_typesof(/mob/living) - (existing_typesof(/mob/living/silicon) + existing_typesof(/mob/living/simple_animal/hostile/humanoid))
+	possible_types = existing_typesof(/mob/living) - (existing_typesof_list(blacklisted_mobs) + (existing_typesof(/mob/living/silicon) + /mob/living/simple_animal/scp_173))
 
 /datum/artifact_effect/menagerie/DoEffectPulse()
 	if(holder)
 		for(var/mob/living/M in range(effectrange,holder))
-			if(istype(M, /mob/living/silicon))
+			if(issilicon(M))
 				continue
 			if(!M.transmogged_from)
 				var/multiplier = GetAnomalySusceptibility(M)
@@ -25,13 +25,7 @@
 				var/transmog_time = rand(1 MINUTES, 5 MINUTES)
 				transmog_time *= multiplier
 				spawn(transmog_time)
-					var/mob/top_level = new_mob
-					if(top_level.transmogged_to)
-						while(top_level.transmogged_to)
-							top_level = top_level.transmogged_to
-					var/turf/T2 = get_turf(top_level)
-					while(top_level)
-						top_level = top_level.transmogrify()
+					var/turf/T2 = get_turf(new_mob.completely_untransmogrify())
 					if(T2)
 						playsound(T2, 'sound/effects/phasein.ogg', 50, 1)
 			return 1

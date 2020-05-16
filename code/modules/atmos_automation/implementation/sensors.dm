@@ -22,7 +22,7 @@
 	field = json["field"]
 
 /datum/automation/get_sensor_data/Evaluate()
-	if(sensor && field && sensor in parent.sensor_information)
+	if(sensor && field && (sensor in parent.sensor_information))
 		return parent.sensor_information[sensor][field]
 	return 0
 
@@ -41,7 +41,8 @@
 			"oxygen",
 			"toxins",
 			"nitrogen",
-			"carbon_dioxide"
+			"carbon_dioxide",
+			"nitrous_oxide"
 		)
 		parent.updateUsrDialog()
 		return 1

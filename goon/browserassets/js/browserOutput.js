@@ -20,7 +20,7 @@ window.onerror = function(msg, url, line, col, error) {
 
 //Globals
 window.status = 'Output';
-var $messages, $subOptions, $contextMenu, $filterMessages;
+var $messages, $subOptions, $last_message;
 var opts = {
 	//General
 	'messageCount': 0, //A count...of messages...
@@ -54,9 +54,6 @@ var opts = {
 	'mouseDownY': null,
 	'preventFocus': false, //Prevents switching focus to the game window
 
-	//Admin stuff
-	'adminLoaded': false, //Has the admin loaded his shit?
-
 	//Client Connection Data
 	'clientDataLimit': 5,
 	'clientData': [],
@@ -65,21 +62,19 @@ var opts = {
 	'macros': {},
 
 	// index in the color presets list.
-	'colorPreset': 0
+	'colorPreset': 0,
+
+	// Whether to combine consecutive repeated messages into one, showing a counter
+	'messageCombining': true
 };
 
 // Array of names for colorblind presets.
 // If not set to normal, a CSS file `browserOutput_${name}.css` will be added to the head.
 var colorPresets = [
 	'normal',
+	'dark',
 	'colorblindv1'
 ]
-
-function outerHTML(el) {
-    var wrap = document.createElement('div');
-    wrap.appendChild(el.cloneNode(true));
-    return wrap.innerHTML;
-}
 
 //Polyfill for fucking date now because of course IE8 and below don't support it
 if (!Date.now) {
@@ -97,6 +92,7 @@ if (typeof String.prototype.trim !== 'function') {
 function updateColorPreset() {
 	var el = $("#colorPresetLink")[0];
 	el.href = "browserOutput_"+colorPresets[opts.colorPreset]+".css";
+	runByond('?_src_=chat&proc=colorPresetPost&preset='+colorPresets[opts.colorPreset]);
 }
 
 //Shit fucking piece of crap that doesn't work god fuckin damn it
@@ -112,57 +108,64 @@ function linkify(text) {
 	});
 }
 
-//Actually turns the highlight term match into appropriate html
-function addHighlightMarkup(match) {
+// Get a highlight markup span
+function createHighlightMarkup() {
 	var extra = '';
 	if (opts.highlightColor) {
-		extra += ' style="background-color: '+opts.highlightColor+'"';
+		extra += ' style="background-color: ' + opts.highlightColor + '"';
 	}
-	return '<span class="highlight"'+extra+'>'+match+'</span>';
+	return '<span class="highlight"' + extra + '></span>';
 }
 
-//Highlights words based on user settings
+// Get all child text nodes that match a regex pattern
+function getTextNodes(elem, pattern) {
+	var result = $([]);
+	$(elem).contents().each(function(idx, child) {
+		if (child.nodeType === 3 && /\S/.test(child.nodeValue) && pattern.test(child.nodeValue)) {
+			result = result.add(child);
+		}
+		else {
+			result = result.add(getTextNodes(child, pattern));
+		}
+	});
+	return result;
+}
+
+// Highlight all text terms matching the registered regex patterns
 function highlightTerms(el) {
-	if (el.children.length > 0) {
-		for(var h = 0; h < el.children.length; h++){
-			highlightTerms(el.children[h]);
-		}
-	}
+	var pattern = new RegExp("(" + opts.highlightTerms.join('|') + ")", 'gi');
+	var nodes = getTextNodes(el, pattern);
 
-	var hasTextNode = false;
-	for (var node = 0; node < el.childNodes.length; node++)
-	{
-		if (el.childNodes[node].nodeType === 3)
-		{
-			hasTextNode = true;
-			break;
-		}
-	}
-
-	if (hasTextNode) { //If element actually has text
-		var newText = '';
-		for (var c = 0; c < el.childNodes.length; c++) { //Each child element
-			if (el.childNodes[c].nodeType === 3) { //Is it text only?
-				var words = el.childNodes[c].data.split(' ');
-				for (var w = 0; w < words.length; w++) { //Each word in the text
-					var newWord = null;
-					for (var i = 0; i < opts.highlightTerms.length; i++) { //Each highlight term
-						if (opts.highlightTerms[i] && words[w].toLowerCase().indexOf(opts.highlightTerms[i].toLowerCase()) > -1) { //If a match is found
-							newWord = words[w].replace("<", "&lt;").replace(new RegExp(opts.highlightTerms[i], 'gi'), addHighlightMarkup);
-							break;
-						}
-						console.log(newWord)
-					}
-					newText += newWord || words[w].replace("<", "&lt;");
-					newText += w >= words.length ? '' : ' ';
-				}
-			} else { //Every other type of element
-				newText += outerHTML(el.childNodes[c]);
+	nodes.each(function (idx, node) {
+		var content = $(node).text();
+		var parent = $(node).parent();
+		var pre = $(node.previousSibling);
+		$(node).remove();
+		content.split(pattern).forEach(function (chunk) {
+			// Get our highlighted span/text node
+			var toInsert = null;
+			if (pattern.test(chunk)) {
+				var tmpElem = $(createHighlightMarkup());
+				tmpElem.text(chunk);
+				toInsert = tmpElem;
 			}
-		}
-		el.innerHTML = newText;
-	}
+			else {
+				toInsert = document.createTextNode(chunk);
+				}
+	
+			// Insert back into our element
+			if (pre.length == 0) {
+				var result = parent.prepend(toInsert);
+				pre = $(result[0].firstChild);
+			}
+			else {
+				pre.after(toInsert);
+				pre = $(pre[0].nextSibling);
+			}
+		});
+	});
 }
+
 //Send a message to the client
 function output(message, flag) {
 	if (typeof message === 'undefined') {
@@ -181,86 +184,30 @@ function output(message, flag) {
 	message = message.replace(/\+/g, "%20")
 	message = decoder(message)
 
-	//The behemoth of filter-code (for Admin message filters)
-	//Note: This is proooobably hella inefficient
-	var filteredOut = false;
-	if (opts.hasOwnProperty('showMessagesFilters') && !opts.showMessagesFilters['All'].show) {
-		//Get this filter type (defined by class on message)
-		var messageHtml = $.parseHTML(message),
-			messageClasses;
-		if (opts.hasOwnProperty('filterHideAll') && opts.filterHideAll) {
-			var internal = false;
-			messageClasses = (!!$(messageHtml).attr('class') ? $(messageHtml).attr('class').split(/\s+/) : false);
-			if (messageClasses) {
-				for (var i = 0; i < messageClasses.length; i++) { //Every class
-					if (messageClasses[i] == 'internal') {
-						internal = true;
-						break;
-					}
-				}
-			}
-			if (!internal) {
-				filteredOut = 'All';
-			}
-		} else {
-			//If the element or it's child have any classes
-			if (!!$(messageHtml).attr('class') || !!$(messageHtml).children().attr('class')) {
-				messageClasses = $(messageHtml).attr('class').split(/\s+/);
-				if (!!$(messageHtml).children().attr('class')) {
-					messageClasses = messageClasses.concat($(messageHtml).children().attr('class').split(/\s+/));
-				}
-				var tempCount = 0;
-				for (var i = 0; i < messageClasses.length; i++) { //Every class
-					var thisClass = messageClasses[i];
-					$.each(opts.showMessagesFilters, function(key, val) { //Every filter
-						if (key !== 'All' && val.show === false && typeof val.match != 'undefined') {
-							for (var i = 0; i < val.match.length; i++) {
-								var matchClass = val.match[i];
-								if (matchClass == thisClass) {
-									filteredOut = key;
-									break;
-								}
-							}
-						}
-						if (filteredOut) return false;
-					});
-					if (filteredOut) break;
-					tempCount++;
-				}
-			} else {
-				if (!opts.showMessagesFilters['Misc'].show) {
-					filteredOut = 'Misc';
-				}
-			}
-		}
-	}
-
 	//Stuff we do along with appending a message
 	var atBottom = false;
-	if (!filteredOut) {
-		var bodyHeight = $('body').height();
-		var messagesHeight = $messages.outerHeight();
-		var scrollPos = $('body,html').scrollTop();
+	var bodyHeight = $('body').height();
+	var messagesHeight = $messages.outerHeight();
+	var scrollPos = $('body,html').scrollTop();
 
-		//Should we snap the output to the bottom?
-		if (bodyHeight + scrollPos >= messagesHeight - opts.scrollSnapTolerance) {
-			atBottom = true;
-			if ($('#newMessages').length) {
-				$('#newMessages').remove();
+	//Should we snap the output to the bottom?
+	if (bodyHeight + scrollPos >= messagesHeight - opts.scrollSnapTolerance) {
+		atBottom = true;
+		if ($('#newMessages').length) {
+			$('#newMessages').remove();
+		}
+	//If not, put the new messages box in
+	} else {
+		if ($('#newMessages').length) {
+			var messages = $('#newMessages .number').text();
+			messages = parseInt(messages);
+			messages++;
+			$('#newMessages .number').text(messages);
+			if (messages == 2) {
+				$('#newMessages .messageWord').append('s');
 			}
-		//If not, put the new messages box in
 		} else {
-			if ($('#newMessages').length) {
-				var messages = $('#newMessages .number').text();
-				messages = parseInt(messages);
-				messages++;
-				$('#newMessages .number').text(messages);
-				if (messages == 2) {
-					$('#newMessages .messageWord').append('s');
-				}
-			} else {
-				$messages.after('<a href="#" id="newMessages"><span class="number">1</span> new <span class="messageWord">message</span> <i class="icon-double-angle-down"></i></a>');
-			}
+			$messages.after('<a href="#" id="newMessages"><span class="number">1</span> new <span class="messageWord">message</span> <i class="icon-double-angle-down"></i></a>');
 		}
 	}
 
@@ -277,26 +224,53 @@ function output(message, flag) {
 		opts.messageCount--; //I guess the count should only ever equal the limit
 	}
 
-	//Actually append the message
-	var entry = document.createElement('div');
-	entry.className = 'entry';
-
-	if (filteredOut) {
-		entry.className += ' hidden';
-		entry.setAttribute('data-filter', filteredOut);
+	var handled = false;
+	var trimmed_message = message.trim();
+	var lastmessages = $messages.children('div.entry:last-child');
+	if(opts.messageCombining && lastmessages.length && $last_message)
+	{
+		if($last_message == trimmed_message)
+		{
+			if(lastmessages.children('span.repeat').length)
+			{
+				var current_value = parseInt(lastmessages.children('span.repeat').text());
+				lastmessages.children('span.repeat').text(current_value + 1);
+			}
+			else
+			{
+				lastmessages.append($('<span/>', { 'class': 'repeat', 'text': 2}));
+			}
+			var insertedBadge = $(lastmessages).find('.repeat');
+			insertedBadge.animate({
+				"font-size": "0.9em"
+			}, 100, function() {
+				insertedBadge.animate({
+					"font-size": "0.7em"
+				}, 100);
+			});
+			opts.messageCount--;
+			handled = true;
+		}
 	}
 
-	entry.innerHTML = message;
-	$messages[0].appendChild(entry);
+	if(!handled)
+	{
+		var entry = document.createElement('div');
+		entry.className = 'entry';
+
+		$last_message = trimmed_message;
+		entry.innerHTML = trimmed_message;
+		$messages[0].appendChild(entry);
+
+		// Stuff we can do after the message shows can go here, in the interest of responsiveness
+		if(opts.highlightTerms && opts.highlightTerms.length > 0) {
+			highlightTerms($(entry));
+		}
+	}
 
 	//Actually do the snap
-	if (!filteredOut && atBottom) {
+	if (atBottom) {
 		$('body,html').scrollTop($messages.outerHeight());
-	}
-
-	//Stuff we can do after the message shows can go here, in the interests of responsiveness
-	if (opts.highlightTerms && opts.highlightTerms.length > 0) {
-		highlightTerms(entry);
 	}
 }
 
@@ -315,7 +289,7 @@ function setCookie(cname, cvalue, exdays) {
 	var d = new Date();
 	d.setTime(d.getTime() + (exdays*24*60*60*1000));
 	var expires = 'expires='+d.toUTCString();
-	document.cookie = cname + '=' + cvalue + '; ' + expires;
+	document.cookie = cname + '=' + cvalue + '; ' + expires + '; path=/';
 }
 
 function getCookie(cname) {
@@ -432,11 +406,6 @@ function ehjaxCallback(data) {
 			} else {
 				handleClientData(data.clientData.ckey, data.clientData.ip, data.clientData.compid);
 			}
-		} else if (data.loadAdminCode) {
-			if (opts.adminLoaded) {return;}
-			var adminCode = data.loadAdminCode;
-			$('body').append(adminCode);
-			opts.adminLoaded = true;
 		} else if (data.modeChange) {
 			changeMode(data.modeChange);
 		} else if (data.firebug) {
@@ -524,7 +493,7 @@ $(function() {
 				if (!opts.noResponse) { //Only actually append a message if the previous ping didn't also fail (to prevent spam)
 					opts.noResponse = true;
 					opts.noResponseCount++;
-					internalOutput('<div class="connectionClosed internal" data-count="'+opts.noResponseCount+'">You are either AFK, experiencing lag or the connection has closed.</div>', 'internal');
+					internalOutput('<div class="connectionClosed internal" data-count="'+opts.noResponseCount+'">You are either experiencing lag or the connection has closed.</div>', 'internal');
 				}
 		} else if (opts.noResponse) { //Previous ping attempt failed ohno
 				$('.connectionClosed[data-count="'+opts.noResponseCount+'"]:not(.restored)').addClass('restored').text('Your connection has been restored (probably)!');
@@ -544,7 +513,8 @@ $(function() {
 		'spingDisabled': getCookie('pingdisabled'),
 		'shighlightTerms': getCookie('highlightterms'),
 		'shighlightColor': getCookie('highlightcolor'),
-		'scolorPreset': getCookie('colorpreset')
+		'scolorPreset': getCookie('colorpreset'),
+		'smessageCombining': getCookie('messagecombining')
 	};
 
 	if (savedConfig.sfontSize) {
@@ -563,15 +533,11 @@ $(function() {
 		internalOutput('<span class="internal boldnshit">Loaded ping display of: '+(opts.pingDisabled ? 'hidden' : 'visible')+'</span>', 'internal');
 	}
 	if (savedConfig.shighlightTerms) {
-		var savedTerms = $.parseJSON(savedConfig.shighlightTerms);
-		var actualTerms = '';
-		for (var i = 0; i < savedTerms.length; i++) {
-			if (savedTerms[i]) {
-				actualTerms += savedTerms[i] + ', ';
-			}
-		}
+		var savedTerms = $.parseJSON(savedConfig.shighlightTerms).filter(function (entry) {
+			return entry !== null && /\S/.test(entry);
+		});
+		var actualTerms = savedTerms.length != 0 ? savedTerms.join(', ') : null;
 		if (actualTerms) {
-			actualTerms = actualTerms.substring(0, actualTerms.length - 2);
 			internalOutput('<span class="internal boldnshit">Loaded highlight strings of: ' + actualTerms+'</span>', 'internal');
 			opts.highlightTerms = savedTerms;
 		}
@@ -585,6 +551,14 @@ $(function() {
 		opts.colorPreset = Number(savedConfig.scolorPreset);
 		updateColorPreset();
 		internalOutput('<span class="internal boldnshit">Loaded color preset of: '+colorPresets[opts.colorPreset]+'</span>', 'internal');
+	}
+
+	if (savedConfig.smessageCombining) {
+		if (savedConfig.smessageCombining == 'false') {
+			opts.messageCombining = false;
+		} else {
+			opts.messageCombining = true;
+		}
 	}
 
 	(function() {
@@ -614,11 +588,6 @@ $(function() {
 
 	$('body').on('mousedown', function(e) {
 		var $target = $(e.target);
-
-		if ($contextMenu && opts.hasOwnProperty('contextMenuTarget') && opts.contextMenuTarget) {
-			hideContextMenu();
-			return false;
-		}
 
 		if ($target.is('a') || $target.parent('a').length || $target.is('input') || $target.is('textarea')) {
 			opts.preventFocus = true;
@@ -858,31 +827,25 @@ $(function() {
 	});
 
 	$('#saveLog').click(function(e) {
-		var saved = '';
+		$.ajax({
+			type: 'GET',
+			url: 'browserOutput.css',
+			success: function(styleData) {
+				var win;
 
-		if (window.XMLHtpRequest) {
-			xmlHttp = new XMLHttpRequest();
-		} else {
-			xmlHttp = new ActiveXObject("Microsoft.XMLHTTP");
-		}
-		xmlHttp.open('GET', 'browserOutput.css', false);
-		xmlHttp.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
-		xmlHttp.send();
-		saved += '<style>'+xmlHttp.responseText+'</style>';
+				try {
+					win = window.open('', 'Chat Log', 'toolbar=no, location=no, directories=no, status=no, menubar=yes, scrollbars=yes, resizable=yes, width=780, height=600, top=' + (screen.height/2 - 635/2) + ', left=' + (screen.width/2 - 780/2));
+				} catch (e) {
+					return;
+				}
 
-		saved += $messages.html();
-		saved = saved.replace(/&/g, '&amp;');
-		saved = saved.replace(/</g, '&lt;');
-
-		var win;
-		try {
-			win = window.open('', 'Chat Log', 'toolbar=no, location=no, directories=no, status=no, menubar=yes, scrollbars=yes, resizable=yes, width=780, height=200, top='+(screen.height-400)+', left='+(screen.width-840));
-		} catch (e) {
-			return;
-		}
-		if (win && win.document && window.document.body) {
-			win.document.body.innerHTML = saved;
-		}
+				if (win) {
+					win.document.head.innerHTML = '<title>Chat Log</title>';
+					win.document.head.innerHTML += '<style>' + styleData + '</style>';
+					win.document.body.innerHTML = $messages.html();
+				}
+			}
+		});
 	});
 
 	$('#highlightTerm').click(function(e) {
@@ -914,20 +877,12 @@ $(function() {
 	$('body').on('submit', '#highlightTermForm', function(e) {
 		e.preventDefault();
 
-		var count = 0;
-		while (count < opts.highlightLimit) {
+		opts.highlightTerms = [];
+		for (var count = 0; count < opts.highlightLimit; count++) {
 			var term = $('#highlightTermInput'+count).val();
-			if (term) {
-				term = term.trim();
-				if (term === '') {
-					opts.highlightTerms[count] = null;
-				} else {
-					opts.highlightTerms[count] = term.toLowerCase();
-				}
-			} else {
-				opts.highlightTerms[count] = null;
+			if (term !== null && /\S/.test(term)) {
+				opts.highlightTerms.push(term.trim().toLowerCase());
 			}
-			count++;
 		}
 
 		var color = $('#highlightColor').val();
@@ -955,6 +910,12 @@ $(function() {
 		setCookie('colorpreset', opts.colorPreset, 365);
 		internalOutput('<span class="internal boldnshit">Changed color preset to: '+colorPresets[opts.colorPreset]);
 	});
+
+	$('#toggleCombine').click(function(e) {
+		opts.messageCombining = !opts.messageCombining;
+		setCookie('messagecombining', opts.messageCombining, 365);
+		internalOutput('<span class="internal boldnshit">Line combining '+(opts.messageCombining ? 'enabled' : 'disabled')+'</span>', 'internal');
+	})
 
 	// Tell BYOND to give us a macro list.
 	// I don't know why but for some retarded reason,

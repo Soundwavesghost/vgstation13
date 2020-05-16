@@ -13,6 +13,8 @@
 
 	icon = 'icons/obj/device.dmi'
 	icon_state = "silicate sprayer"
+	item_state = "silicate"
+	inhand_states = list("left_hand" = 'icons/mob/in-hand/left/newsprites_lefthand.dmi', "right_hand" = 'icons/mob/in-hand/right/newsprites_righthand.dmi')
 
 	w_class = W_CLASS_SMALL
 	flags = FPRINT | OPENCONTAINER
@@ -98,7 +100,7 @@
 	T.healthcheck(user, FALSE)
 
 	user.visible_message("<span class='notice'>[user] repairs \the [T] with their [name]!</span>", "<span class='notice'>You repair \the [T] with your [name].</span>")
-	playsound(get_turf(T), 'sound/effects/refill.ogg', 10, 1, -6)
+	playsound(T, 'sound/effects/refill.ogg', 10, 1, -6)
 
 	remove_silicate(diff * SILICATE_PER_DAMAGE)
 
@@ -121,7 +123,7 @@
 	W.healthcheck(user, FALSE)
 
 	user.visible_message("<span class='notice'>[user] repairs \the [W] with their [name]!</span>", "<span class='notice'>You repair \the [W] with your [name].</span>")
-	playsound(get_turf(src), 'sound/effects/refill.ogg', 10, 1, -6)
+	playsound(src, 'sound/effects/refill.ogg', 10, 1, -6)
 
 	remove_silicate(diff * SILICATE_PER_DAMAGE)
 
@@ -134,6 +136,8 @@
 	desc = "An advanced tool used to repair and reinforce windows."
 
 	icon_state = "silicate sprayer advanced"
+	item_state = "advsilicate"
+	inhand_states = list("left_hand" = 'icons/mob/in-hand/left/newsprites_lefthand.dmi', "right_hand" = 'icons/mob/in-hand/right/newsprites_righthand.dmi')
 
 	max_silicate = 100
 	silicate_per_state = 10
@@ -164,16 +168,16 @@
 	if(get_dist(A, user) > 1) // I purposely don't use proximity_flag so you can get to windows without needing adjacency. (window behind another window for example.)
 		return
 
-	if(!get_amount())
-		to_chat(user, "<span class='notice'>\The [src] is out of silicate!</span>")
-		return 1
-
 	if(iswindow(A))
 		return preattack_window(A, user)
 	else if(istype(A, /turf/simulated/floor/glass))
 		return preattack_glassfloor(A, user)
 
 /obj/item/device/silicate_sprayer/advanced/preattack_window(var/atom/A, var/mob/user)
+	if(!get_amount())
+		to_chat(user, "<span class='notice'>\The [src] is out of silicate!</span>")
+		return 1
+
 	var/obj/structure/window/W = A
 	var/initial_health = initial(W.health)
 
@@ -192,13 +196,17 @@
 	W.healthcheck(user, FALSE)
 
 	user.visible_message("<span class='notice'>[user] reinforced \the [W] with their [name]!</span>", "<span class='notice'>You reinforce \the [W] with your [name].</span>")
-	playsound(get_turf(src), 'sound/effects/refill.ogg', 10, 1, -6)
+	playsound(src, 'sound/effects/refill.ogg', 10, 1, -6)
 
 	remove_silicate(repair_amt * SILICATE_PER_REINFORCE)
 
 	return 1
 
 /obj/item/device/silicate_sprayer/advanced/preattack_glassfloor(var/atom/A, var/mob/user)
+	if(!get_amount())
+		to_chat(user, "<span class='notice'>\The [src] is out of silicate!</span>")
+		return 1
+
 	var/turf/simulated/floor/glass/G = A
 	var/initial_health = initial(G.health)
 
@@ -217,7 +225,7 @@
 	G.healthcheck(user)
 
 	user.visible_message("<span class='notice'>[user] reinforced \the [G] with their [name]!</span>", "<span class='notice'>You reinforce \the [G] with your [name].</span>")
-	playsound(get_turf(src), 'sound/effects/refill.ogg', 10, 1, -6)
+	playsound(src, 'sound/effects/refill.ogg', 10, 1, -6)
 
 	remove_silicate(repair_amt * SILICATE_PER_REINFORCE)
 

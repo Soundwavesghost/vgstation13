@@ -27,7 +27,6 @@
 	var/wasvalid = 0
 	var/lastfired = 0
 	var/shot_delay = 30 //3 seconds between shots
-	var/datum/effect/effect/system/spark_spread/spark_system
 	use_power = 1
 	idle_power_usage = 50
 	active_power_usage = 300
@@ -38,9 +37,6 @@
 
 
 /obj/machinery/turret/New()
-	spark_system = new /datum/effect/effect/system/spark_spread
-	spark_system.set_up(5, 0, src)
-	spark_system.attach(src)
 //	targets = new
 	..()
 	return
@@ -91,7 +87,7 @@
 	return
 
 /obj/machinery/turret/proc/check_target(var/atom/movable/T as mob|obj)
-	if( T && T in protected_area.turretTargets )
+	if(T && (T in protected_area.turretTargets))
 		var/area/area_T = get_area(T)
 		if( !area_T || (area_T.type != protected_area.type) )
 			protected_area.Exited(T)
@@ -103,7 +99,7 @@
 		if( iscarbon(T) )
 			var/mob/living/carbon/MC = T
 			if( !MC.stat )
-				if( !MC.lying || lasers ) //only shoots them while they're down if set to laser mode
+				if( !MC.isStunned() || lasers ) //only shoots them while they're down if set to laser mode
 					return 1
 		if(issilicon(T))
 			if(!shootsilicons || istype(T,/mob/living/silicon/ai))
@@ -135,7 +131,7 @@
 		if(!M.stat && !(M.flags & INVULNERABLE) && M.faction != faction)
 			if(iscarbon(M))
 				var/mob/living/carbon/C = M
-				if(!C.lying || lasers) //only shoots them while they're down if set to laser mode
+				if(!C.isStunned() || lasers) //only shoots them while they're down if set to laser mode
 					new_targets += C
 			else
 				new_targets += M
@@ -183,9 +179,9 @@
 
 		if(prob(15))
 			if(prob(50))
-				playsound(get_turf(src), 'sound/effects/turret/move1.wav', 60, 1)
+				playsound(src, 'sound/effects/turret/move1.wav', 60, 1)
 			else
-				playsound(get_turf(src), 'sound/effects/turret/move2.wav', 60, 1)
+				playsound(src, 'sound/effects/turret/move2.wav', 60, 1)
 	else if(!isPopping())//else, pop down
 		if(!isDown())
 			popDown()
@@ -248,7 +244,7 @@
 	if ((!isPopping()) || src.popping==-1)
 		invisibility = 0
 		popping = 1
-		playsound(get_turf(src), 'sound/effects/turret/open.wav', 60, 1)
+		playsound(src, 'sound/effects/turret/open.wav', 60, 1)
 		if (src.cover!=null)
 			flick("popup", src.cover)
 			src.cover.icon_state = "openTurretCover"
@@ -259,7 +255,7 @@
 /obj/machinery/turret/proc/popDown()
 	if ((!isPopping()) || src.popping==1)
 		popping = -1
-		playsound(get_turf(src), 'sound/effects/turret/open.wav', 60, 1)
+		playsound(src, 'sound/effects/turret/open.wav', 60, 1)
 		if (src.cover!=null)
 			flick("popdown", src.cover)
 			src.cover.icon_state = "turretCover"
@@ -272,7 +268,7 @@
 	src.health -= Proj.damage
 	..()
 	if(prob(45) && Proj.damage > 0)
-		src.spark_system.start()
+		spark(src, 5, FALSE)
 
 	if (src.health <= 0)
 		src.die()
@@ -283,14 +279,39 @@
 	user.delayNextAttack(10)
 	if(..())
 		return 1
-	playsound(get_turf(src), 'sound/weapons/smash.ogg', 60, 1)
-	src.spark_system.start()
+	playsound(src, 'sound/weapons/smash.ogg', 60, 1)
+	spark(src, 5, FALSE)
 	src.health -= W.force * 0.5
 	visible_message("<span class='danger'>[user] attacked \the [src] with \the [W]!</span>")
 	user.attack_log += text("\[[time_stamp()]\] <font color='red'>attacked [src] with [W]</font>")
 	if (src.health <= 0)
 		src.die()
 	return
+
+/obj/machinery/turret/attack_animal(mob/living/simple_animal/M)
+	if(M.melee_damage_upper == 0)
+		return
+	if(!(stat & BROKEN))
+		M.do_attack_animation(src, M)
+		visible_message("<span class='danger'>[M] [M.attacktext] [src]!</span>")
+		M.attack_log += text("\[[time_stamp()]\] <font color='red'>attacked [src.name]</font>")
+		//src.attack_log += text("\[[time_stamp()]\] <font color='orange'>was attacked by [M.name] ([M.ckey])</font>")
+		src.health -= M.melee_damage_upper
+		if (src.health <= 0)
+			src.die()
+	else
+		to_chat(M, "<span class='warning'>That object is useless to you.</span>")
+
+/obj/machinery/turret/attack_alien(mob/living/carbon/alien/humanoid/M)
+	if(!(stat & BROKEN))
+		M.do_attack_animation(src, M)
+		playsound(src, 'sound/weapons/slash.ogg', 25, 1, -1)
+		visible_message("<span class='danger'>[M] has slashed at [src]!</span>")
+		src.health -= 15
+		if (src.health <= 0)
+			src.die()
+	else
+		to_chat(M, "<span class='good'>That object is useless to you.</span>")
 
 /obj/machinery/turret/emp_act(severity)
 	switch(severity)
@@ -306,7 +327,7 @@
 
 /obj/machinery/turret/proc/die()
 	src.health = 0
-	src.density = 0
+	setDensity(FALSE)
 	src.stat |= BROKEN
 	src.icon_state = "destroyed_target_prism"
 	if (cover!=null)
@@ -318,19 +339,20 @@
 		qdel(src)
 
 /obj/machinery/turretid
-	name = "Turret deactivation control"
+	name = "turret control switchboard"
+	desc = "A card reader attached to a small switchboard with a big status light. The button labelled 'lethal' has a post-it note under it, showing a skull and crossbones."
 	icon = 'icons/obj/device.dmi'
-	icon_state = "motion3"
+	icon_state = "turretid_stun"
 	anchored = 1
 	density = 0
 	var/enabled = 1
 	var/lethal = 0
 	var/locked = 1
-	var/area/control_area //can be area name, path or nothing.
-	var/ailock = 0 // AI cannot use this
+	var/area/control_area //Can be area name, path or nothing.
+	var/ailock = 0 //AI cannot use this
 	req_access = list(access_ai_upload)
 
-	ghost_read=0
+	ghost_read = 0
 
 	machine_flags = EMAGGABLE
 
@@ -338,158 +360,162 @@
 	..()
 	if(!control_area)
 		control_area = get_area(src)
-	else if(istext(control_area))
-		for(var/area/A in areas)
-			if(A.name && A.name==control_area)
-				control_area = A
-				break
 	else if(ispath(control_area))
 		control_area = locate(control_area)
+	else if(istext(control_area))
+		var/path = text2path(control_area)
+		if(path)
+			control_area = locate(path)
+		else
+			for(var/area/A in areas)
+				if(cmptext(A.name, control_area))
+					control_area = A
+					break
 
-	return
+	ASSERT(isarea(control_area))
+	updateTurrets() //Updates the turrets and the icon if an instance is made that is not set to stun by default
 
 /obj/machinery/turretid/emag(mob/user)
 	if(!emagged)
-		to_chat(user, "<span class='warning'>You short out the turret controls' access analysis module.</span>")
 		emagged = 1
 		locked = 0
-		if(user.machine==src)
-			src.attack_hand(user)
+		if(user)
+			to_chat(user, "<span class='warning'>You short out [src]'s access analysis and threat indicator module.</span>")
+			if(user.machine == src)
+				attack_hand(user)
+			update_icons() //Update the icon immediately since emagging removes the turret threat indicator
 		return 1
 	return
 
 /obj/machinery/turretid/attackby(obj/item/weapon/W, mob/user)
 	if(stat & BROKEN)
 		return
-	if (istype(user, /mob/living/silicon))
-		return src.attack_hand(user)
+	if(issilicon(user))
+		return attack_hand(user)
 
 	..()
 
-	if( get_dist(src, user) == 0 )		// trying to unlock the interface
-		if (src.allowed(usr))
+	if(user.Adjacent(src))
+		if(allowed(user))
 			if(emagged)
-				to_chat(user, "<span class='notice'>The turret control is unresponsive.</span>")
+				to_chat(user, "<span class='warning'>[src]'s card reader is totally unresponsive.</span>")
 				return
 
 			locked = !locked
-			to_chat(user, "<span class='notice'>You [ locked ? "lock" : "unlock"] the panel.</span>")
-			if (locked)
-				if (user.machine==src)
+			user.visible_message("<span class='notice'>[user] [locked ? "locks" : "unlocks"] the switchboard panel.</span>",
+			"<span class='notice'>You [locked ? "lock" : "unlock"] the switchboard panel.</span>")
+			if(locked)
+				if (user.machine == src)
 					user.unset_machine()
 					user << browse(null, "window=turretid")
 			else
-				if (user.machine==src)
+				if(user.machine == src)
 					src.attack_hand(user)
 		else
 			to_chat(user, "<span class='warning'>Access denied.</span>")
 
 /obj/machinery/turretid/attack_ai(mob/user as mob)
-	src.add_hiddenprint(user)
-	if(!ailock)
+	add_hiddenprint(user)
+	if(!ailock || isAdminGhost(user))
 		return attack_hand(user)
 	else
-		to_chat(user, "<span class='notice'>There seems to be a firewall preventing you from accessing this device.</span>")
+		to_chat(user, "<span class='notice'>There seems to be a firewall preventing you from accessing [src].</span>")
 
 /obj/machinery/turretid/attack_hand(mob/user as mob)
-	if ( get_dist(src, user) > 0 )
-		if ( !issilicon(user) )
+	if(!user.Adjacent(src))
+		if(!issilicon(user) && !isAdminGhost(user))
 			to_chat(user, "<span class='notice'>You are too far away.</span>")
 			user.unset_machine()
 			user << browse(null, "window=turretid")
 			return
 
 	user.set_machine(src)
+	// Oh god what
 	var/loc = src.loc
-	if (istype(loc, /turf))
+	if(istype(loc, /turf))
 		loc = loc:loc
-	if (!istype(loc, /area))
-		to_chat(user, text("Turret control badly positioned - loc.loc is [].", loc))
+	if(!istype(loc, /area))
+		to_chat(user, "<span class='warning'>The turret control switchboard flashes a network disconnection error. The area plan might not be registering properly.</span>") //Debug message
 		return
 	var/area/area = loc
 	var/t = "<TT><B>Turret Control Panel</B> ([area.name])<HR>"
 
-	if(src.locked && (!istype(user, /mob/living/silicon)))
-		t += "<I>(Swipe ID card to unlock control panel.)</I><BR>"
+	if(!isAdminGhost(user) && src.locked && (!istype(user, /mob/living/silicon)))
+		t += "<I>(Swipe ID card to unlock control panel)</I><BR>"
 	else
-		t += text("Turrets [] - <A href='?src=\ref[];toggleOn=1'>[]?</a><br>\n", src.enabled?"activated":"deactivated", src, src.enabled?"Disable":"Enable")
-		t += text("Currently set for [] - <A href='?src=\ref[];toggleLethal=1'>Change to []?</a><br>\n", src.lethal?"lethal":"stun repeatedly", src,  src.lethal?"Stun repeatedly":"Lethal")
+		t += "Turrets [enabled ? "activated":"deactivated"] - <A href='?src=\ref[src];toggleOn=1'>[enabled ? "Disable":"Enable"]?</a><br>\n"
+		t += "Currently set to [lethal ? "lethal":"stun"] - <A href='?src=\ref[src];toggleLethal=1'>Change to [lethal ? "Stun":"Lethal"]?</a><br>\n"
 
 	user << browse(t, "window=turretid")
 	onclose(user, "turretid")
 
-
-/obj/machinery/turret/attack_animal(mob/living/simple_animal/M as mob)
-	if(M.melee_damage_upper == 0)
-		return
-	if(!(stat & BROKEN))
-		M.do_attack_animation(src, M)
-		visible_message("<span class='danger'>[M] [M.attacktext] [src]!</span>")
-		M.attack_log += text("\[[time_stamp()]\] <font color='red'>attacked [src.name]</font>")
-		//src.attack_log += text("\[[time_stamp()]\] <font color='orange'>was attacked by [M.name] ([M.ckey])</font>")
-		src.health -= M.melee_damage_upper
-		if (src.health <= 0)
-			src.die()
-	else
-		to_chat(M, "<span class='warning'>That object is useless to you.</span>")
-
-/obj/machinery/turret/attack_alien(mob/living/carbon/alien/humanoid/M as mob)
-	if(!(stat & BROKEN))
-		M.do_attack_animation(src, M)
-		playsound(get_turf(src), 'sound/weapons/slash.ogg', 25, 1, -1)
-		visible_message("<span class='danger'>[] has slashed at []!</span>", M, src)
-		src.health -= 15
-		if (src.health <= 0)
-			src.die()
-	else
-		to_chat(M, "<span class='good'>That object is useless to you.</span>")
-
-
 /obj/machinery/turretid/npc_tamper_act(mob/living/L)
 	enabled = rand(0, 1)
 	lethal = rand(0, 1)
-	src.updateTurrets()
+	updateTurrets()
 
 /obj/machinery/turretid/Topic(href, href_list)
 	if(..())
 		return 1
-	if (src.locked)
-		if (!istype(usr, /mob/living/silicon))
-			to_chat(usr, "Control panel is locked!")
+	if(locked)
+		if(!issilicon(usr) && !isAdminGhost(usr))
+			to_chat(usr, "<span class='warning'>Control panel is locked!</span>")
 			return
-	if ( get_dist(src, usr) == 0 || issilicon(usr))
-		if (href_list["toggleOn"])
-			src.enabled = !src.enabled
-			src.updateTurrets()
-		else if (href_list["toggleLethal"])
-			src.lethal = !src.lethal
-			src.updateTurrets()
-	src.attack_hand(usr)
+	if(usr.Adjacent(src) || issilicon(usr) || isAdminGhost(usr))
+		if(href_list["toggleOn"])
+			enabled = !enabled
+			usr.visible_message("<span class='warning'>[usr] [enabled ? "enables":"disables"] the turrets.</span>",
+			"<span class='notice'>You [enabled ? "enable":"disable"] the turrets.</span>")
+			updateTurrets()
+		else if(href_list["toggleLethal"])
+			lethal = !lethal
+			usr.visible_message("<span class='warning'>[usr] switches the turrets to [lethal ? "lethal":"stun"].</span>",
+			"<span class='notice'>You switch the turrets to [lethal ? "lethal":"stun"].</span>")
+			updateTurrets()
+	attack_hand(usr)
+
+//Regular Alt Click (not AI) allows users to immediately turn the turrets on or off, assuming the rest of the steps are done (notably interface unlocked)
+/obj/machinery/turretid/AltClick(mob/user)
+	if(!usr.incapacitated() && Adjacent(user) && usr.dexterity_check() && !locked)
+		enabled = !enabled
+		usr.visible_message("<span class='warning'>[usr] [enabled ? "enables":"disables"] the turrets.</span>",
+		"<span class='notice'>You [enabled ? "enable":"disable"] the turrets.</span>")
+		updateTurrets()
+		return
+	return ..()
+
+//All AI shortcuts. Basing this on what airlocks do, so slight clash with user (Alt is dangerous so toggle stun/lethal, Ctrl is bolts so lock, Shift is 'open' so toggle turrets)
+/obj/machinery/turretid/AIAltClick() //Stun/lethal toggle
+	if(!ailock)
+		lethal = !lethal
+		to_chat(usr, "<span class='notice'>You switch the turrets to [lethal ? "lethal":"stun"].</span>")
+		updateTurrets()
+
+/obj/machinery/turretid/AICtrlClick() //Lock the device
+	if(!ailock)
+		locked = !locked
+		to_chat(usr, "<span class='notice'>You [locked ? "lock" : "unlock"] the switchboard panel.</span>")
+
+/obj/machinery/turretid/AIShiftClick()  //Toggle the turrets on/off
+	if(!ailock)
+		enabled = !enabled
+		to_chat(usr, "<span class='notice'>You [enabled ? "enable":"disable"] the turrets.</span>")
+		updateTurrets()
 
 /obj/machinery/turretid/proc/updateTurrets()
 	if(control_area)
-		//ASSERT(istype(control_area))
 		for(var/obj/machinery/turret/aTurret in control_area.contents)
 			aTurret.setState(enabled, lethal)
-	src.update_icons()
+	update_icons()
 
 /obj/machinery/turretid/proc/update_icons()
-	if (src.enabled)
-		if (src.lethal)
-			icon_state = "motion1"
+	if(enabled && !emagged) //Emagged turret controls are always disguised as disabled
+		if(lethal)
+			icon_state = "turretid_lethal"
 		else
-			icon_state = "motion3"
+			icon_state = "turretid_stun"
 	else
-		icon_state = "motion0"
-																				//CODE FIXED BUT REMOVED
-//	if(control_area)															//USE: updates other controls in the area
-//		for (var/obj/machinery/turretid/Turret_Control in world)				//I'm not sure if this is what it was
-//			if( Turret_Control.control_area != src.control_area )	continue	//supposed to do. Or whether the person
-//			Turret_Control.icon_state = icon_state								//who coded it originally was just tired
-//			Turret_Control.enabled = enabled									//or something. I don't see  any situation
-//			Turret_Control.lethal = lethal										//in which this would be used on the current map.
-																				//If he wants it back he can uncomment it
-
+		icon_state = "turretid_safe"
 
 /obj/structure/turret/gun_turret
 	name = "Gun Turret"
@@ -572,7 +598,7 @@
 				if(src)
 					src.process()
 	if(href_list["scan_range"])
-		src.scan_range = Clamp(src.scan_range + text2num(href_list["scan_range"]), 1, 8)
+		src.scan_range = clamp(src.scan_range + text2num(href_list["scan_range"]), 1, 8)
 	if(href_list["scan_for"])
 		if(href_list["scan_for"] in scan_for)
 			scan_for[href_list["scan_for"]] = !scan_for[href_list["scan_for"]]
@@ -610,12 +636,12 @@
 	var/target = null
 	if(scan_for["human"])
 		for(var/mob/living/carbon/human/M in oview(scan_range,src))
-			if(M.stat || M.lying || M in exclude)
+			if(M.stat || M.isStunned() || (M in exclude))
 				continue
 			pos_targets += M
 	if(scan_for["cyborg"])
 		for(var/mob/living/silicon/M in oview(scan_range,src))
-			if(M.stat || M.lying || M in exclude)
+			if(M.stat || M.lying || (M in exclude))
 				continue
 			pos_targets += M
 	if(scan_for["mecha"])
@@ -625,7 +651,7 @@
 			pos_targets += M
 	if(scan_for["alien"])
 		for(var/mob/living/carbon/alien/M in oview(scan_range,src))
-			if(M.stat || M.lying || M in exclude)
+			if(M.stat || M.lying || (M in exclude))
 				continue
 			pos_targets += M
 	if(pos_targets.len)

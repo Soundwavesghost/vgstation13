@@ -1,17 +1,24 @@
-#define RUST_GYROTRON_RANGE 25
-
 /obj/machinery/computer/rust_gyrotron_controller
 	name = "Gyrotron Remote Controller"
 	icon_state = "engine"
 	circuit = /obj/item/weapon/circuitboard/rust_gyrotron_control
 	light_color = LIGHT_COLOR_BLUE
 
+	var/id_tag // Required for multitool buffering
 	var/list/linked_gyrotrons[0] //List of linked gyrotrons.
 
-/obj/machinery/computer/rust_gyrotron_controller/Topic(href, href_list)
-	. =..()
-	if(.)
-		return
+/obj/machinery/computer/rust_gyrotron_controller/initialize()
+	if(!id_tag)
+		assign_uid()
+		id_tag = uid
+
+	. = ..()
+
+/obj/machinery/computer/rust_gyrotron_controller/New()
+	. = ..()
+
+	if(ticker)
+		initialize()
 
 /obj/machinery/computer/rust_gyrotron_controller/attack_ai(var/mob/user)
 	. = attack_hand(user)
@@ -25,9 +32,11 @@
 
 	interact(user)
 
-/obj/machinery/computer/rust_gyrotron_controller/wrenchAnchor(var/mob/user)
+/obj/machinery/computer/rust_gyrotron_controller/wrenchAnchor(var/mob/user, var/obj/item/I)
 	. = ..()
-	if(. == 1 && state) //We're set to anchored again.
+	if(!.)
+		return
+	if(state) //We're set to anchored again.
 		for(var/obj/machinery/rust/gyrotron/gyro in linked_gyrotrons)
 			if(get_dist(src, gyro) > RUST_GYROTRON_RANGE) //We've been moved so far we're out of range.
 				linked_gyrotrons -= gyro
@@ -86,7 +95,7 @@
 	if(!href_list["gyro"])
 		return
 
-	var/idx = Clamp(text2num(href_list["gyro"]), 1, linked_gyrotrons.len)
+	var/idx = clamp(text2num(href_list["gyro"]), 1, linked_gyrotrons.len)
 	var/obj/machinery/rust/gyrotron/gyro = linked_gyrotrons[idx]
 
 	if(!gyro || gyro.stat & (NOPOWER | BROKEN))
@@ -98,7 +107,7 @@
 			to_chat(usr, "<span class='warning'>That's not a valid number.</span>")
 			return 1
 
-		gyro.mega_energy = Clamp(new_val, 0.001, 0.01)
+		gyro.mega_energy = clamp(new_val, 0.001, 0.01)
 		gyro.active_power_usage = gyro.mega_energy * 100000000 //1 MW for 0.01 TJ, 100 KW for 0.001 TJ.
 
 		updateUsrDialog()
@@ -110,7 +119,7 @@
 			to_chat(usr, "<span class='warning'>That's not a valid number.</span>")
 			return 1
 
-		gyro.rate = Clamp(new_val, 10, 100)
+		gyro.rate = clamp(new_val, 10, 100)
 
 		updateUsrDialog()
 		return 1
@@ -121,7 +130,7 @@
 			to_chat(usr, "<span class='warning'>That's not a valid number.</span>")
 			return 1
 
-		gyro.frequency = Clamp(new_val, 1, 50000)
+		gyro.frequency = clamp(new_val, 1, 50000)
 
 		updateUsrDialog()
 		return 1

@@ -13,6 +13,9 @@
 	w_class = W_CLASS_MEDIUM
 	fire_delay = 0
 	fire_sound = 'sound/weapons/hookshot_fire.ogg'
+	clumsy_check = 0
+	var/chaintype = /obj/effect/overlay/hookchain
+	var/hooktype = /obj/item/projectile/hookshot
 	var/maxlength = 14
 	var/obj/item/projectile/hookshot/hook = null
 	var/list/links = list()
@@ -37,14 +40,9 @@
 /obj/item/weapon/gun/hookshot/New()
 	..()
 	for(var/i = 0;i <= maxlength; i++)
-		if(istype(src, /obj/item/weapon/gun/hookshot/flesh))
-			var/obj/effect/overlay/hookchain/flesh/HC = new(src)
-			HC.shot_from = src
-			links["[i]"] = HC
-		else
-			var/obj/effect/overlay/hookchain/HC = new(src)
-			HC.shot_from = src
-			links["[i]"] = HC
+		var/obj/effect/overlay/hookchain/HC = new chaintype(src)
+		HC.shot_from = src
+		links["[i]"] = HC
 
 /obj/item/weapon/gun/hookshot/Destroy()//if a single link of the chain is destroyed, the rest of the chain is instantly destroyed as well.
 	if(chain_datum)
@@ -80,23 +78,26 @@
 		panic = 0
 
 	if(!hook && !rewinding && !clockwerk && !check_tether())//if there is no projectile already, and we aren't currently rewinding the chain, or reeling in toward a target,
-		hook = new/obj/item/projectile/hookshot(src)		//and that the hookshot isn't currently sustaining a tether, then we can fire.
+		hook = new hooktype(src)		//and that the hookshot isn't currently sustaining a tether, then we can fire.
 		in_chamber = hook
 		firer = loc
 		update_icon()
 		return 1
 	return 0
 
-/obj/item/weapon/gun/hookshot/afterattack(atom/A as mob|obj|turf|area, mob/living/user as mob|obj, flag, params, struggle = 0)//clicking anywhere reels the target to the player.
+/obj/item/weapon/gun/hookshot/afterattack(atom/A, mob/living/user, flag, params, struggle = 0)//clicking anywhere reels the target to the player.
 	if(flag)
 		return //we're placing gun on a table or in backpack
 	if(check_tether())
 		if(istype(chain_datum.extremity_B,/mob/living/carbon))
-			var/mob/living/carbon/C = chain_datum.extremity_B
-			to_chat(C, "<span class='warning'>\The [src] reels you in!</span>")
+			display_reel_message()
 		chain_datum.rewind_chain()
 		return
 	..()
+
+/obj/item/weapon/gun/hookshot/proc/display_reel_message()
+	var/mob/living/carbon/C = chain_datum.extremity_B
+	to_chat(C, "<span class='warning'>\The [src] reels you in!</span>")
 
 /obj/item/weapon/gun/hookshot/dropped(mob/user as mob)
 	if(!clockwerk && !rewinding)
@@ -148,25 +149,40 @@
 		return
 	rewinding = 1
 	for(var/j = 1; j <= maxlength; j++)
-		var/pause = 0
-		for(var/i = maxlength; i > 0; i--)
-			var/obj/effect/overlay/hookchain/HC = links["[i]"]
-			if(!HC)
-				cancel_chain()
-				return
-			if(HC.loc == src)
-				continue
-			pause = 1
-			var/obj/effect/overlay/hookchain/HC0 = links["[i-1]"]
-			if(!HC0)
-				cancel_chain()
-				return
-			HC.forceMove(HC0.loc)
-			HC.pixel_x = HC0.pixel_x
-			HC.pixel_y = HC0.pixel_y
-		sleep(pause)
+		rewind_loop()
 	rewinding = 0
 	update_icon()
+
+/obj/item/weapon/gun/hookshot/proc/rewind_loop()
+	var/pause = 0
+	for(var/i = maxlength; i > 0; i--)
+		var/obj/effect/overlay/hookchain/HC = links["[i]"]
+		if(!HC)
+			cancel_chain()
+			return
+		if(HC.loc == src)
+			continue
+		reset_hookchain_overlays(HC)
+		pause = 1
+		set_end_of_chain(i)
+		var/obj/effect/overlay/hookchain/HC0 = links["[i-1]"]
+		if(!HC0)
+			cancel_chain()
+			return
+		HC.forceMove(HC0.loc)
+		HC.pixel_x = HC0.pixel_x
+		HC.pixel_y = HC0.pixel_y
+	apply_item_overlay()
+	sleep(pause)
+
+/obj/item/weapon/gun/hookshot/proc/reset_hookchain_overlays(var/obj/effect/overlay/hookchain/HC)	//fleshshot only
+	return
+
+/obj/item/weapon/gun/hookshot/proc/set_end_of_chain(var/i)	//fleshshot only
+	return
+
+/obj/item/weapon/gun/hookshot/proc/apply_item_overlay()	//fleshshot only
+	return
 
 /obj/item/weapon/gun/hookshot/proc/cancel_chain()//instantly sends all the links back into the hookshot. replaces those that got destroyed.
 	for(var/j = 1; j <= maxlength; j++)
@@ -213,6 +229,7 @@
 	var/undergoing_deletion = 0
 	var/snap = 0
 	var/rewinding = 0
+	var/name = "chain"
 
 /datum/chain/New()
 	spawn(20)
@@ -238,11 +255,11 @@
 	undergoing_deletion = 1
 	if(extremity_A)
 		if(snap)
-			extremity_A.visible_message("The chain snaps and lets go of \the [extremity_A].")
+			extremity_A.visible_message("The [name] snaps and lets go of \the [extremity_A].")
 		extremity_A.tether = null
 	if(extremity_B)
 		if(snap)
-			extremity_B.visible_message("The chain snaps and lets go of \the [extremity_B].")
+			extremity_B.visible_message("The [name] snaps and lets go of \the [extremity_B].")
 		extremity_B.tether = null
 	for(var/i = 1; i<= links.len ;i++)
 		var/obj/effect/overlay/chain/C = links["[i]"]
@@ -287,12 +304,16 @@
 
 				if(istype(extremity_A,/mob/living))
 					var/mob/living/L = extremity_A
-					C2.CtrlClick(L)
+					if(!(istype(C2, /obj/item) && pick_up_item(L, C2)))
+						C2.CtrlClick(L)
 		C1.rewinding = 1
 		qdel(C1)
 		sleep(1)
 
 	Delete_Chain()
+
+/datum/chain/proc/pick_up_item(var/mob/living/M, var/obj/item/I)	//fleshshot only
+	return
 
 //THE CHAIN THAT APPEARS WHEN YOU FIRE THE HOOKSHOT
 /obj/effect/overlay/hookchain
@@ -318,6 +339,7 @@
 	var/atom/movable/extremity_B = null
 	var/datum/chain/chain_datum = null
 	var/rewinding = 0
+	var/overlay_name = "chain"
 
 /obj/effect/overlay/chain/Cross(atom/movable/mover, turf/target, height=1.5, air_group = 0)
 	return 1
@@ -326,7 +348,7 @@
 	overlays.len = 0
 	for(var/atom/movable/extremity in list(extremity_A,extremity_B))
 		if(extremity && (loc != extremity.loc))
-			var/image/chain_img = image(icon,src,"chain",dir=get_dir(src,extremity))
+			var/image/chain_img = image(icon,src,"[overlay_name]",dir=get_dir(src,extremity))
 			chain_img.plane = OBJ_PLANE
 			overlays += chain_img
 
@@ -348,7 +370,7 @@
 		else if(A == extremity_B)
 			return extremity_A.attempt_to_follow(src, A.loc)
 
-/obj/effect/overlay/chain/Move(newLoc,Dir=0,step_x=0,step_y=0)//for when someone pulls a part the chain.
+/obj/effect/overlay/chain/Move(NewLoc, Dir = 0, step_x = 0, step_y = 0, glide_size_override = 0)//for when someone pulls a part the chain.
 	var/turf/T = loc
 	if(..())
 		var/obj/effect/overlay/chain/CA = extremity_A
@@ -441,3 +463,33 @@
 		chain_datum.snap = 1
 		chain_datum.Delete_Chain()
 	..()
+
+/obj/item/weapon/gun/hookshot/whip
+	name = "bullwhip"
+	icon = 'icons/obj/weapons.dmi'
+	icon_state = "bullwhip"
+	fire_sound = 'sound/weapons/whip_crack.ogg'
+	fire_action = "flick"
+	inhand_states = list("left_hand" = 'icons/mob/in-hand/left/swords_axes.dmi', "right_hand" = 'icons/mob/in-hand/right/swords_axes.dmi')
+	force = 5
+	maxlength = 5
+	hooktype = /obj/item/projectile/hookshot/whip
+	empty_sound = null
+	slot_flags = SLOT_BELT
+
+/obj/item/weapon/gun/hookshot/whip/update_icon()
+	return
+
+/obj/item/weapon/gun/hookshot/whip/vampkiller
+	name = "vampire killer"
+	desc = "A brutal looking weapon consisting of a morning star head attached to a chain lash. It's said to be imbued with holy powers, but this one looks like a cheap replica."
+	icon_state = "vampkiller"
+	item_state = "vampkiller"
+	force = 15
+	hooktype = /obj/item/projectile/hookshot/whip/vampkiller
+	fire_sound = 'sound/weapons/vampkiller.ogg'
+
+/obj/item/weapon/gun/hookshot/whip/vampkiller/true
+	desc = "A brutal looking weapon consisting of a morning star head attached to a chain lash. It is blessed to be effective against the undead and radiates an awesome holy aura."
+	icon_state = "vampkiller_true"
+	hooktype = /obj/item/projectile/hookshot/whip/vampkiller/true

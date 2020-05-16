@@ -10,7 +10,6 @@
 
 /datum/research_tree/proc/get_avail_unlocks()
 	CRASH("SOME GIT CALLED /datum/research_tree/get_avail_unlocks()! Check for ..() in [type]/get_avail_unlocks()!")
-	return list()
 
 // CALL EXTERNALLY ONLY: Sets context.
 /datum/research_tree/proc/get(var/id, var/only_usable=0)
@@ -43,7 +42,7 @@
 	return "</table>"
 
 /datum/research_tree/proc/display(var/mob/user)
-	testing("Entering display...")
+//	testing("Entering display...")
 	var/html = "<h2>[title]</h2><p>[blurb]</p>"
 	html += start_table()
 	load_usable_unlocks()

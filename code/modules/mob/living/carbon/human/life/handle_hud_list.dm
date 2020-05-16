@@ -17,14 +17,6 @@
 		hud_list[HEALTH_HUD] = holder
 
 	if(hud_updateflag & 1 << STATUS_HUD)
-		var/foundVirus = 0
-		for(var/datum/disease/D in viruses)
-			if(!D.hidden[SCANNER])
-				foundVirus++
-		for(var/ID in virus2)
-			if(ID in virusDB)
-				foundVirus = 1
-				break
 
 		var/image/holder = hud_list[STATUS_HUD]
 		var/image/holder2 = hud_list[STATUS_HUD_OOC]
@@ -34,7 +26,7 @@
 		else if(status_flags & XENO_HOST)
 			holder.icon_state = "hudxeno"
 			holder2.icon_state = "hudxeno"
-		else if(foundVirus)
+		else if(has_any_recorded_disease(src))
 			holder.icon_state = "hudill"
 		else if(has_brain_worms())
 			var/mob/living/simple_animal/borer/B = has_brain_worms()
@@ -45,10 +37,16 @@
 			holder2.icon_state = "hudbrainworm"
 		else
 			holder.icon_state = "hudhealthy"
-			if(virus2.len)
-				holder2.icon_state = "hudill"
-			else
-				holder2.icon_state = "hudhealthy"
+			var/dangerosity = has_recorded_virus2(src)
+			switch (dangerosity)
+				if (1)
+					holder.icon_state = "hudill"
+				if (2)
+					holder.icon_state = "hudill_safe"
+				if (3)
+					holder.icon_state = "hudill_danger"
+				else
+					holder.icon_state = "hudhealthy"
 
 		hud_list[STATUS_HUD] = holder
 		hud_list[STATUS_HUD_OOC] = holder2
@@ -78,6 +76,9 @@
 		for(var/datum/data/record/E in data_core.general)
 			if(E.fields["name"] == perpname)
 				for (var/datum/data/record/R in data_core.security)
+					if((R.fields["id"] == E.fields["id"]) && (R.fields["criminal"] == "*High Threat*"))
+						holder.icon_state = "hudterminate"
+						break
 					if((R.fields["id"] == E.fields["id"]) && (R.fields["criminal"] == "*Arrest*"))
 						holder.icon_state = "hudwanted"
 						break
@@ -114,7 +115,7 @@
 		hud_list[IMPLOYAL_HUD] = holder2
 		hud_list[IMPCHEM_HUD] = holder3
 
-	if(hud_updateflag & 1 << SPECIALROLE_HUD)
+	/*if(hud_updateflag & 1 << SPECIALROLE_HUD)
 		var/image/holder = hud_list[SPECIALROLE_HUD]
 		holder.icon_state = "hudblank"
 
@@ -137,5 +138,5 @@
 				if("Vampire") // TODO: Check this
 					holder.icon_state = "hudvampire"
 
-			hud_list[SPECIALROLE_HUD] = holder
+			hud_list[SPECIALROLE_HUD] = holder*/
 	hud_updateflag = 0

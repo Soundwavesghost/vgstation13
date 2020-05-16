@@ -3,6 +3,9 @@
 	endWhen = 450
 	var/list/drones_list = list()
 
+/datum/event/rogue_drone/can_start()
+	return 25
+
 /datum/event/rogue_drone/start()
 	//spawn them at the same place as carp
 	var/list/possible_spawns = list()
@@ -32,11 +35,7 @@
 /datum/event/rogue_drone/end()
 	var/num_recovered = 0
 	for(var/mob/living/simple_animal/hostile/retaliate/malf_drone/D in drones_list)
-		var/locc = get_turf(D)
-		if(locc)
-			var/datum/effect/effect/system/spark_spread/sparks = new /datum/effect/effect/system/spark_spread()
-			sparks.set_up(3, 0, locc)
-			sparks.start()
+		spark(D, 3, FALSE)
 		D.z = map.zCentcomm
 		D.has_loot = 0
 

@@ -12,11 +12,12 @@
 		return
 	lastcycle = world.time
 
-	var/mob/living/simple_animal/bee/BEE = locate() in loc
-	if(BEE && (BEE.feral < 1))
-		bees = 1
-	else
+	if (pollination <= 0)
 		bees = 0
+	else
+		pollination--
+		bees = 1
+
 
 	// Weeds like water and nutrients, there's a chance the weed population will increase.
 	// Bonus chance if the tray is unoccupied.
@@ -119,33 +120,14 @@
 			return
 
 	// Handle gas consumption.
-	if(seed.consume_gasses && seed.consume_gasses.len)
+	if(seed.consume_gasses && seed.consume_gasses.len && environment)
 		missing_gas = 0
 		for(var/gas in seed.consume_gasses)
-			if(environment)
-				switch(gas)
-					if("oxygen")
-						if(environment.oxygen < seed.consume_gasses[gas])
-							missing_gas++
-							continue
-						environment.adjust_gas(gas,-min(seed.consume_gasses[gas], environment.oxygen),1)
-					if("plasma")
-						if(environment.toxins < seed.consume_gasses[gas])
-							missing_gas++
-							continue
-						environment.adjust_gas(gas,-min(seed.consume_gasses[gas], environment.toxins),1)
-					if("nitrogen")
-						if(environment.nitrogen < seed.consume_gasses[gas])
-							missing_gas++
-							continue
-						environment.adjust_gas(gas,-min(seed.consume_gasses[gas], environment.nitrogen),1)
-					if("carbon_dioxide")
-						if(environment.carbon_dioxide < seed.consume_gasses[gas])
-							missing_gas++
-							continue
-						environment.adjust_gas(gas,-min(seed.consume_gasses[gas], environment.carbon_dioxide),1)
-			else
+			if(environment[gas] < seed.consume_gasses[gas])
 				missing_gas++
+				continue
+			environment.adjust_gas(gas, -(seed.consume_gasses[gas]), FALSE)
+		environment.update_values()
 
 		if(missing_gas > 0)
 			health -= missing_gas * HYDRO_SPEED_MULTIPLIER
@@ -175,17 +157,11 @@
 		for(var/gas in seed.exude_gasses)
 			environment.adjust_gas(gas, max(1,round((seed.exude_gasses[gas]*round(seed.potency))/seed.exude_gasses.len)))
 
-	// This was adapted from the air alarm code
-	// I've never done atmos or touched atmos code before so there's a chance I've fucked this up
 	if(seed.alter_temp)
-		if(istype(T, /turf/simulated/))
-			var/datum/gas_mixture/room = T.remove_air(environment.total_moles)
-			if(room.temperature < seed.ideal_heat-seed.heat_tolerance)
-				room.temperature += (seed.potency*3)
-			else if (room.temperature > seed.ideal_heat+seed.heat_tolerance)
-				room.temperature -= (seed.potency*3)
-			room.react()
-			T.assume_air(room)
+		if((environment.temperature < seed.ideal_heat - seed.heat_tolerance) || (environment.temperature > seed.ideal_heat + seed.heat_tolerance))
+			var/energy_cap = seed.potency * 60 * MOLES_CELLSTANDARD //This is totally arbitrary. It just serves to approximate the behavior from when this modified temperature rather than thermal energy.
+			var/energy_change = clamp(environment.get_thermal_energy_change(seed.ideal_heat), -energy_cap, energy_cap)
+			environment.add_thermal_energy(energy_change)
 
 	// If we're attached to a pipenet, then we should let the pipenet know we might have modified some gasses
 	//if (closed_system && connected_port)
@@ -214,9 +190,6 @@
 		if(toxins > seed.toxins_tolerance)
 			health -= toxin_uptake
 		toxins -= toxin_uptake * (1+bees)
-		if(BEE && BEE.parent)
-			var/obj/machinery/apiary/A = BEE.parent
-			A.toxic = Clamp(A.toxic + toxin_uptake/2, 0, 25) //gotta be careful where you let your bees hang around
 		if(draw_warnings)
 			update_icon_after_process = 1
 
@@ -255,6 +228,9 @@
 		process()
 
 	check_health()
+
+	if(harvest && seed.harvest_repeat == 2)
+		autoharvest()
 
 	// If enough time (in cycles, not ticks) has passed since the plant was harvested, we're ready to harvest again.
 	if(!dead && seed.products && seed.products.len)
@@ -320,25 +296,25 @@
 	// Updates the plant overlay.
 	if(!isnull(seed))
 		if(draw_warnings && health <= (seed.endurance / 2))
-			overlays += image(seed.plant_dmi,"over_lowhealth3")
+			overlays += image('icons/obj/hydroponics/hydro_tools.dmi',"over_lowhealth3")
 
 		if(dead)
-			overlays += image(seed.plant_dmi,"[seed.plant_icon]-dead")
+			overlays += image(seed.plant_dmi,"dead")
 		else if(harvest)
-			overlays += image(seed.plant_dmi,"[seed.plant_icon]-harvest")
+			overlays += image(seed.plant_dmi,"harvest")
 		else if(age < seed.maturation)
 			var/t_growthstate = max(1,round((age * seed.growth_stages) / seed.maturation))
-			overlays += image(seed.plant_dmi,"[seed.plant_icon]-grow[t_growthstate]")
+			overlays += image(seed.plant_dmi,"stage-[t_growthstate]")
 			lastproduce = age
 		else
-			overlays += image(seed.plant_dmi,"[seed.plant_icon]-grow[seed.growth_stages]")
+			overlays += image(seed.plant_dmi,"stage-[seed.growth_stages]")
 
 	//Draw the cover.
 	if(closed_system)
 		overlays += image(icon = icon, icon_state = "hydrocover")
 
 	//Updated the various alert icons.
-	if(draw_warnings)
+	if(draw_warnings&& !reagents.has_reagent(SPORTDRINK))
 		if(waterlevel <= 10)
 			overlays += image(icon = icon, icon_state = "over_lowwater3")
 		if(nutrilevel <= 2)
@@ -366,16 +342,16 @@
 /obj/machinery/portable_atmospherics/hydroponics/proc/check_level_sanity()
 	//Make sure various values are sane.
 	if(seed)
-		health = Clamp(health, 0, seed.endurance)
+		health = clamp(health, 0, seed.endurance)
 	else
 		health = 0
 		dead = 0
 
-	mutation_level = Clamp(mutation_level, 0, 100)
-	nutrilevel =     Clamp(nutrilevel, 0, 10)
-	waterlevel =     Clamp(waterlevel, 0, 100)
-	pestlevel =      Clamp(pestlevel, 0, 10)
-	weedlevel =      Clamp(weedlevel, 0, 10)
-	toxins =         Clamp(toxins, 0, 100)
-	yield_mod = 	 Clamp(yield_mod, 0, 2)
-	mutation_mod = 	 Clamp(mutation_mod, 0, 3)
+	mutation_level = clamp(mutation_level, 0, 100)
+	nutrilevel =     clamp(nutrilevel, 0, 10)
+	waterlevel =     clamp(waterlevel, 0, 100)
+	pestlevel =      clamp(pestlevel, 0, 10)
+	weedlevel =      clamp(weedlevel, 0, 10)
+	toxins =         clamp(toxins, 0, 100)
+	yield_mod = 	 clamp(yield_mod, 0, 2)
+	mutation_mod = 	 clamp(mutation_mod, 0, 3)

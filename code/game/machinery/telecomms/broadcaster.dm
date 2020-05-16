@@ -11,8 +11,8 @@ var/list/recentmessages = list() // global list of recent messages broadcasted :
 var/message_delay = 0 // To make sure restarting the recentmessages list is kept in sync
 
 /obj/machinery/telecomms/broadcaster
-	name = "Subspace Broadcaster"
-	icon = 'icons/obj/stationobjs.dmi'
+	name = "telecommunications subspace broadcaster"
+	icon = 'icons/obj/machines/telecomms.dmi'
 	icon_state = "broadcaster"
 	desc = "A dish-shaped machine used to broadcast processed subspace signals."
 	density = 1
@@ -20,17 +20,35 @@ var/message_delay = 0 // To make sure restarting the recentmessages list is kept
 	use_power = 1
 	idle_power_usage = 25
 	machinetype = 5
-	heatgen = 0
 	delay = 7
-	circuitboard = "/obj/item/weapon/circuitboard/telecomms/broadcaster"
+
+/obj/machinery/telecomms/broadcaster/New()
+	..()
+	component_parts = newlist(
+		/obj/item/weapon/circuitboard/telecomms/broadcaster,
+		/obj/item/weapon/stock_parts/subspace/filter,
+		/obj/item/weapon/stock_parts/manipulator,
+		/obj/item/weapon/stock_parts/manipulator,
+		/obj/item/weapon/stock_parts/subspace/crystal,
+		/obj/item/weapon/stock_parts/micro_laser/high,
+		/obj/item/weapon/stock_parts/micro_laser/high
+	)
+
+	RefreshParts()
 
 /obj/machinery/telecomms/broadcaster/receive_information(var/datum/signal/signal, var/obj/machinery/telecomms/machine_from)
 	// Don't broadcast rejected signals
 	if(signal.data["reject"])
 		return
 
-	if(signal.data["message"])
+	signal.data["traffic"] += 1 //Valid step point.
 
+	if(signal.data["trace"])
+		var/obj/machinery/computer/telecomms/monitor/M = signal.data["trace"]
+		M.receive_trace(src, "None. The operation contained [signal.data["traffic"]] steps")
+
+
+	if(signal.data["message"])
 		// Prevents massive radio spam
 		signal.data["done"] = 1 // mark the signal as being broadcasted
 		// Search for the original signal and mark it as done as well
@@ -112,17 +130,19 @@ var/message_delay = 0 // To make sure restarting the recentmessages list is kept
 */
 
 /obj/machinery/telecomms/allinone
-	name = "Telecommunications Mainframe"
-	icon = 'icons/obj/stationobjs.dmi'
-	icon_state = "comm_server"
+	name = "telecommunications mainframe"
+	icon = 'icons/obj/machines/telecomms.dmi'
+	icon_state = "server"
 	desc = "A compact machine used for portable subspace telecommuniations processing."
 	density = 1
 	anchored = 1
 	use_power = 0
 	idle_power_usage = 0
 	machinetype = 6
-	heatgen = 0
+	heating_power = 0
 	var/intercept = 0 // if nonzero, broadcasts all messages to syndicate channel
+	var/syndi_allinone = 0
+	var/raider_allinone = 0
 
 /obj/machinery/telecomms/allinone/receive_signal(datum/signal/signal)
 #ifdef SAY_DEBUG
@@ -136,7 +156,6 @@ var/message_delay = 0 // To make sure restarting the recentmessages list is kept
 		return
 
 	if(is_freq_listening(signal)) // detect subspace signals
-
 		signal.data["done"] = 1 // mark the signal as being broadcasted
 		signal.data["compression"] = 0
 
@@ -151,7 +170,13 @@ var/message_delay = 0 // To make sure restarting the recentmessages list is kept
 		/* ###### Broadcast a message using signal.data ###### */
 
 
-		if(signal.frequency == SYND_FREQ) // if syndicate broadcast, just
+		if(signal.frequency == SYND_FREQ && syndi_allinone == 1) // if syndicate broadcast, just
+			var/datum/speech/speech = getFromPool(/datum/speech)
+			speech.from_signal(signal)
+			/* ###### Broadcast a message using signal.data ###### */
+			Broadcast_Message(speech, signal.data["vmask"], 0, signal.data["compression"], list(0, z))
+
+		if(signal.frequency == RAID_FREQ && raider_allinone == 1) // if raider broadcast, just
 			var/datum/speech/speech = getFromPool(/datum/speech)
 			speech.from_signal(signal)
 			/* ###### Broadcast a message using signal.data ###### */
@@ -297,31 +322,32 @@ var/message_delay = 0 // To make sure restarting the recentmessages list is kept
 		var/blackbox_msg = "[speech.speaker] [enc_message]"
 
 		if(istype(blackbox))
-			switch(speech.frequency)
-				if(1459)
-					blackbox.msg_common += blackbox_msg
-				if(1351)
-					blackbox.msg_science += blackbox_msg
-				if(1353)
-					blackbox.msg_command += blackbox_msg
-				if(1355)
-					blackbox.msg_medical += blackbox_msg
-				if(1357)
-					blackbox.msg_engineering += blackbox_msg
-				if(1359)
-					blackbox.msg_security += blackbox_msg
-				if(1441)
-					blackbox.msg_deathsquad += blackbox_msg
-				if(1345)
-					blackbox.msg_ert += blackbox_msg
-				if(1213)
-					blackbox.msg_syndicate += blackbox_msg
-				if(1349)
-					blackbox.msg_service += blackbox_msg
-				if(1347)
-					blackbox.msg_cargo += blackbox_msg
-				else
-					blackbox.messages += blackbox_msg
+			if(speech.frequency == COMMON_FREQ)
+				blackbox.msg_common += blackbox_msg
+			if(speech.frequency == SCI_FREQ)
+				blackbox.msg_science += blackbox_msg
+			if(speech.frequency == COMM_FREQ)
+				blackbox.msg_command += blackbox_msg
+			if(speech.frequency == MED_FREQ)
+				blackbox.msg_medical += blackbox_msg
+			if(speech.frequency == ENG_FREQ)
+				blackbox.msg_engineering += blackbox_msg
+			if(speech.frequency == SEC_FREQ)
+				blackbox.msg_security += blackbox_msg
+			if(speech.frequency ==DSQUAD_FREQ)
+				blackbox.msg_deathsquad += blackbox_msg
+			if(speech.frequency == RESPONSE_FREQ)
+				blackbox.msg_ert += blackbox_msg
+			if(speech.frequency == SYND_FREQ)
+				blackbox.msg_syndicate += blackbox_msg
+			if(speech.frequency == RAID_FREQ)
+				blackbox.msg_raider += blackbox_msg
+			if(speech.frequency == SER_FREQ)
+				blackbox.msg_service += blackbox_msg
+			if(speech.frequency == SUP_FREQ)
+				blackbox.msg_cargo += blackbox_msg
+			else
+				blackbox.messages += blackbox_msg
 #ifdef SAY_DEBUG
 	if(speech.speaker)
 		say_testing(speech.speaker, "Broadcast_Message finished with [listeners ? listeners.len : 0] listener\s getting our message, [speech.message] lang = [speech.language ? speech.language.name : "none"]")
@@ -595,7 +621,7 @@ var/message_delay = 0 // To make sure restarting the recentmessages list is kept
 		"done" = 0,
 		"level" = pos.z // The level it is being broadcasted at.
 	)
-	signal.frequency = 1459// Common channel
+	signal.frequency = COMMON_FREQ// Common channel
 
   //#### Sending the signal to all subspace receivers ####//
 	for(var/obj/machinery/telecomms/receiver/R in telecomms_list)

@@ -82,15 +82,16 @@ var/global/list/datum/mind/raiders = list()  //Antags.
 
 		var/mob/living/carbon/human/vox = raider.current
 		vox.age = rand(12,20)
-		vox.s_tone = random_skin_tone("Vox")
+		vox.my_appearance.s_tone = random_skin_tone("Vox")
 		vox.dna.mutantrace = "vox"
 		vox.set_species("Vox")
 		vox.fully_replace_character_name(vox.real_name, vox.generate_name())
 		//vox.languages = HUMAN // Removing language from chargen.
+		vox.flavor_text = ""
 		vox.add_language(LANGUAGE_VOX)
 		vox.remove_language(LANGUAGE_GALACTIC_COMMON)
-		vox.h_style = "Short Vox Quills"
-		vox.f_style = "Shaved"
+		vox.my_appearance.h_style = "Short Vox Quills"
+		vox.my_appearance.f_style = "Shaved"
 		for(var/datum/organ/external/limb in vox.organs)
 			limb.status &= ~(ORGAN_DESTROYED | ORGAN_ROBOT)
 		vox.equip_vox_raider()

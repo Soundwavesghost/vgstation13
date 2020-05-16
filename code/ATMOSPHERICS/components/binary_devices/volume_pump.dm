@@ -21,10 +21,10 @@ Thus, the two variables affect pump operation are set in New():
 	name = "Volumetric gas pump"
 	desc = "A volumetric pump"
 
-	var/on = 0
 	var/transfer_rate = MAX_TRANSFER_RATE
 
 	var/frequency = 0
+	var/pump_stalled = 0
 	var/id_tag = null
 	var/datum/radio_frequency/radio_connection
 
@@ -37,6 +37,8 @@ Thus, the two variables affect pump operation are set in New():
 /obj/machinery/atmospherics/binary/volume_pump/update_icon(var/adjacent_procd)
 	if(stat & NOPOWER)
 		icon_state = "intact_off"
+	else if (pump_stalled)
+		icon_state="intact_stalled"
 	else if(node1 && node2)
 		icon_state = "intact_[on?("on"):("off")]"
 	..()
@@ -51,8 +53,13 @@ Thus, the two variables affect pump operation are set in New():
 	var/input_starting_pressure = air1.return_pressure()
 	var/output_starting_pressure = air2.return_pressure()
 
-	if((input_starting_pressure < 0.01) || (output_starting_pressure > 9000))
+	if((input_starting_pressure < 0.01) || (output_starting_pressure > (9000+input_starting_pressure)))
+		pump_stalled = 1
+		update_icon()
 		return
+	else
+		pump_stalled = 0
+		update_icon() 
 
 	var/transfer_ratio = max(1, transfer_rate/air1.volume)
 
@@ -126,7 +133,7 @@ Thus, the two variables affect pump operation are set in New():
 		if("power")
 			on = text2num(signal.data["value"])
 		if("set_transfer_rate")
-			transfer_rate = Clamp(text2num(signal.data["value"]), 0, MAX_TRANSFER_RATE)
+			transfer_rate = clamp(text2num(signal.data["value"]), 0, MAX_TRANSFER_RATE)
 			investigation_log(I_ATMOS, "was set to [transfer_rate] L/s by a remote signal.")
 
 	if("status" in signal.data)
@@ -172,7 +179,7 @@ Thus, the two variables affect pump operation are set in New():
 			id_tag = newid
 			initialize()
 		return MT_UPDATE
-		
+
 	if("set_freq" in href_list)
 		var/newfreq=frequency
 		if(href_list["set_freq"]!="-1")
@@ -203,5 +210,13 @@ Thus, the two variables affect pump operation are set in New():
 
 	src.update_icon()
 	src.updateUsrDialog()
+
+/obj/machinery/atmospherics/binary/volume_pump/canClone(var/obj/O)
+	return istype(O, /obj/machinery/atmospherics/binary/volume_pump)
+
+/obj/machinery/atmospherics/binary/volume_pump/clone(var/obj/machinery/atmospherics/binary/volume_pump/O)
+	id_tag = O.id_tag
+	set_frequency(O.frequency)
+	return 1
 
 #undef MAX_TRANSFER_RATE

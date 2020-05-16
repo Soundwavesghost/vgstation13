@@ -18,7 +18,7 @@
 			triggerAlarm()
 	else if (detectTime == -1)
 		for (var/mob/target in motionTargets)
-			if (target.stat == 2)
+			if (target.isDead())
 				lostTarget(target)
 			// If not detecting with motion camera...
 			if (!area_motion)
@@ -34,28 +34,36 @@
 		detectTime = world.time // start the clock
 	if (!(target in motionTargets))
 		motionTargets += target
+		target.on_destroyed.Add(src, "clearDeletedTarget")
 	return 1
 
 /obj/machinery/camera/proc/lostTarget(var/mob/target)
 	if (target in motionTargets)
 		motionTargets -= target
+		target.on_destroyed.Remove("\ref[src]:clearDeletedTarget")
 	if (motionTargets.len == 0)
 		cancelAlarm()
 
+/obj/machinery/camera/proc/clearDeletedTarget(list/params)
+	var/atom/destroyed = params["atom"]
+	lostTarget(destroyed)
+
 /obj/machinery/camera/proc/cancelAlarm()
 	if (detectTime == -1)
+		var/area/this_area = get_area(src)
 		for (var/mob/living/silicon/aiPlayer in player_list)
 			if (status)
-				aiPlayer.cancelAlarm("Motion", areaMaster)
+				aiPlayer.cancelAlarm("Motion", this_area)
 	detectTime = 0
 	return 1
 
 /obj/machinery/camera/proc/triggerAlarm()
 	if (!detectTime)
 		return 0
+	var/area/this_area = get_area(src)
 	for (var/mob/living/silicon/aiPlayer in player_list)
 		if (status)
-			aiPlayer.triggerAlarm("Motion", areaMaster, src)
+			aiPlayer.triggerAlarm("Motion", this_area, src)
 	detectTime = -1
 	return 1
 

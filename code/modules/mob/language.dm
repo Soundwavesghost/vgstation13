@@ -16,7 +16,10 @@
 	var/list/syllables
 	var/list/space_chance = 55       // Likelihood of getting a space in the random scramble string.
 
-/datum/language/proc/get_spoken_verb(var/msg, var/silicon, var/mode)
+/datum/language/proc/get_spoken_verb(var/msg, var/silicon, var/mode, var/mob/speaker)
+	var/speaker_verb_override = speaker.get_spoken_verb(msg)
+	if (speaker_verb_override)
+		return speaker_verb_override
 	switch(mode)
 		if(SPEECH_MODE_WHISPER)
 			return "[whisper_verb]"
@@ -44,7 +47,7 @@
 
 /datum/language/proc/render_speech(var/datum/speech/speech, var/html_message)
 	// html_message is the message itself + <span> tags. Do NOT filter it.
-	return "[get_spoken_verb(speech.message,issilicon(speech.speaker),speech.mode)], [html_message]"
+	return "[get_spoken_verb(speech.message,issilicon(speech.speaker),speech.mode, speech.speaker)], [html_message]"
 
 /* Obsolete, here for reference
 /datum/language/proc/format_message(mob/M, message)
@@ -65,7 +68,6 @@
 	exclaim_verb = "roars"
 	colour = "soghun"
 	key = "o"
-	flags = RESTRICTED
 	syllables = list("ss","ss","ss","ss","skak","seeki","resh","las","esi","kor","sh")
 
 /datum/language/tajaran
@@ -76,7 +78,6 @@
 	exclaim_verb = "yowls"
 	colour = "tajaran"
 	key = "j"
-	flags = RESTRICTED
 	syllables = list("rr","rr","tajr","kir","raj","kii","mir","kra","ahk","nal","vah","khaz","jri","ran","darr", \
 	"mi","jri","dynh","manq","rhe","zar","rrhaz","kal","chur","eech","thaa","dra","jurl","mah","sanu","dra","ii'r", \
 	"ka","aasi","far","wa","baq","ara","qara","zir","sam","mak","hrar","nja","rir","khan","jun","dar","rik","kah", \
@@ -90,7 +91,6 @@
 	exclaim_verb = "warbles"
 	colour = "skrell"
 	key = "k"
-	flags = RESTRICTED
 	syllables = list("qr","qrr","xuq","qil","quum","xuqm","vol","xrim","zaoo","qu-uu","qix","qoo","zix","*","!")
 
 /datum/language/vox
@@ -101,9 +101,20 @@
 	exclaim_verb = "shrieks"
 	colour = "vox"
 	key = "v"
-	flags = RESTRICTED
 	syllables = list("ti","ti","ti","hi","hi","ki","ki","ki","ki","ya","ta","ha","ka","ya","chi","cha","kah", \
 	"SKRE","AHK","EHK","RAWK","KRA","AAA","EEE","KI","II","KRI","KA")
+
+/datum/language/insectoid
+	name = LANGUAGE_INSECT
+	desc = "A collection of disquieting vibrations and chittering sounds, the spoken tongue of insectoids. "
+	speech_verb = "chitters"
+	ask_verb = "clicks"
+	exclaim_verb = "hisses"
+	colour = "gutter"
+	key = "%"
+	native = 1
+	syllables = list("ch","ke","chi","tch","sk","skch","ra","kch","esk","kra","sh","tik","ech","ks")
+	space_chance = 40
 
 /datum/language/diona
 	name = LANGUAGE_ROOTSPEAK
@@ -113,7 +124,6 @@
 	exclaim_verb = "rustles"
 	colour = "soghun"
 	key = "q"
-	flags = RESTRICTED
 	syllables = list("hs","zt","kr","st","sh")
 
 /datum/language/common
@@ -130,7 +140,6 @@
 	desc = "A bastardized hybrid of informal English and elements of Mandarin Chinese; the common language of the Sol system."
 	key = "7"
 	colour = "solcom"
-	flags = RESTRICTED
 
 /datum/language/human/monkey
 	name = LANGUAGE_MONKEY
@@ -149,6 +158,7 @@
 	colour = "say_quote"
 	key = "2"
 	space_chance = 100
+	flags = CAN_BE_SECONDARY_LANGUAGE
 	syllables = list("lorem", "ipsum", "dolor", "sit", "amet", "consectetur", "adipiscing", "elit",
 					 "sed", "do", "eiusmod", "tempor", "incididunt", "ut", "labore", "et", "dolore",
 					 "magna", "aliqua", "ut", "enim", "ad", "minim", "veniam", "quis", "nostrud",
@@ -164,6 +174,7 @@
 	speech_verb = "growls"
 	colour = "gutter"
 	key = "3"
+	flags = CAN_BE_SECONDARY_LANGUAGE
 	syllables = list("gra","ba","ba","breh","bra","rah","dur","ra","ro","gro","go","ber","bar","geh","heh","gra")
 
 /datum/language/grey
@@ -175,7 +186,6 @@
 	exclaim_verb = "quacks loudly"
 	colour = "grey"
 	native=1
-	flags = RESTRICTED
 	space_chance = 100
 	syllables = list("ACK", "AKACK", "ACK")
 
@@ -196,7 +206,6 @@
 	exclaim_verb = "chatters loudly"
 	colour = "sinister"
 	native=1
-	flags = RESTRICTED
 	space_chance = 95
 	syllables = list("CLICK", "CLACK")
 
@@ -210,7 +219,6 @@
 	colour = "golem"
 	native = 1
 	key = "8"
-	flags = RESTRICTED
 	syllables = list("oa","ur","ae","um","tu","gor","an","lo","ag","oon","po")
 
 /datum/language/slime
@@ -223,7 +231,6 @@
 	colour = "slime"
 	native = 1
 	key = "f"
-	flags = RESTRICTED
 	syllables = list("ba","ab","be","eb","bi","ib","bo","ob","bu","ub")
 
 /datum/language/skellington/say_misunderstood(mob/M, message)
@@ -274,7 +281,28 @@
 	key = "9"
 	space_chance = 80
 	syllables = list("squeak")
+
+/datum/language/martian
+	name = LANGUAGE_MARTIAN
+	desc = "Complex warbles and burbles used by the odd squid people."
+	speech_verb = "burbles"
+	ask_verb = "blorbles"
+	exclaim_verb = "blurbs"
+	key = "@"
+	colour = "grey"
 	flags = RESTRICTED
+	space_chance = 35
+	native = 1
+	syllables = list("khah","kig","kitol","kaor","bar","dar","dator","lok","ma","mu","o","och","gort","gal")
+
+/datum/language/deathsquad
+	name = LANGUAGE_DEATHSQUAD
+	desc = "A set of codewords that Nanotrasen's deathsquads use for communication."
+	key = "&"
+	colour = "dsquadradio"
+	flags = RESTRICTED
+	space_chance = 100
+	syllables = list("alpha", "bravo", "charlie", "delta", "echo", "foxtrot", "golf", "hotel", "india", "juliet", "kilo", "lima", "mike", "november", "oscar", "papa", "quebec", "romeo", "sierra", "tango", "uniform", "victor", "whiskey", "x-ray", "yankee", "zulu")
 
 // Language handling.
 /mob/proc/add_language(var/language)
@@ -288,19 +316,19 @@
 	languages.Add(new_language)
 	return 1
 
-/mob/proc/remove_language(var/rem_language)
+/mob/proc/remove_language(rem_language)
 	var/datum/language/L = all_languages[rem_language]
-	. = (L in languages)
-	languages.Remove(L)
+	return languages.Remove(L)
 
 /mob/living/remove_language(rem_language)
-	var/datum/language/L = all_languages[rem_language]
-	if(default_language == L)
-		if(all_languages.len)
-			default_language = all_languages[1]
-		else
-			default_language = null
-	return ..()
+	. = ..()
+	if(.)
+		var/datum/language/L = all_languages[rem_language]
+		if(default_language == L)
+			if(languages.len)
+				default_language = languages[1]
+			else
+				default_language = null
 
 // Can we speak this language, as opposed to just understanding it?
 /mob/proc/can_speak_lang(datum/language/speaking)
@@ -337,9 +365,9 @@
 	src << browse(dat, "window=checklanguage")
 
 /mob/living/Topic(href, href_list)
-	if(usr != src)
-		return
 	if(href_list["default_lang"])
+		if(usr != src)
+			return
 		if(href_list["default_lang"] == "reset")
 			set_default_language(null)
 		else

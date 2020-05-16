@@ -57,6 +57,15 @@
 	icon_state = "d20"
 	sides = 20
 
+/obj/item/weapon/dice/loaded
+	desc = "A die with six even sides. Basic and servicable."
+
+/obj/item/weapon/dice/loaded/d20
+	name = "d20"
+	desc = "A die with twenty even sides. The prefered die to throw at the GM."
+	icon_state = "d20"
+	sides = 20
+
 /obj/item/weapon/dice/d20/e20
 	var/triggered = 0
 
@@ -67,8 +76,7 @@
 	..()
 	diceroll(user, 1)
 
-/obj/item/weapon/dice/proc/diceroll(mob/user as mob, thrown)
-	result = rand(minsides, sides)
+/obj/item/weapon/dice/proc/show_roll(mob/user as mob, thrown, result)
 	var/comment = ""
 	if(sides == 20)
 		if(result == 20)
@@ -85,11 +93,21 @@
 	else if(src.throwing == 0) //Dice was thrown and is coming to rest
 		visible_message("<span class='notice'>[src] rolls to a stop, landing on [result]. [comment]</span>")
 
+/obj/item/weapon/dice/proc/diceroll(mob/user as mob, thrown)
+	result = rand(minsides, sides)
+	show_roll(user, thrown, result)
+
+/obj/item/weapon/dice/loaded/diceroll(mob/user as mob, thrown)
+	result = rand(minsides, sides * 1.5)
+	result = min(result, sides)
+	show_roll(user, thrown, result)
+
 /obj/item/weapon/dice/d4/Crossed(var/mob/living/carbon/human/H)
 	if(istype(H) && !H.shoes)
 		to_chat(H, "<span class='danger'>You step on the D4!</span>")
 		H.apply_damage(4,BRUTE,(pick(LIMB_LEFT_LEG, LIMB_RIGHT_LEG)))
 		H.Knockdown(3)
+		H.Stun(3)
 
 /obj/item/weapon/dice/update_icon()
 	overlays.len = 0
@@ -130,10 +148,11 @@
 
 
 /obj/item/weapon/dice/d20/cursed
-	desc = "Something about this dice seems wrong"
 	name = "\improper Mysterious d20"
+	desc = "Something about this dice seems wrong"
 	var/deactivated = 0 //Eventually the dice runs out of power
 	var/infinite = 0 //dice with 1 will not run out
+	mech_flags = MECH_SCAN_ILLEGAL
 
 /obj/item/weapon/dice/d20/cursed/pickup(mob/user as mob)
 	..()
@@ -214,10 +233,8 @@
 							user.update_mutations()
 							to_chat(user, "<span class=danger><B>You've gone blind, deaf and mute! </span></B>")
 						if(2)
-							for(var/datum/organ/external/l_arm/E in h.organs)
+							for(var/datum/organ/external/E in h.get_organs(LIMB_LEFT_ARM, LIMB_RIGHT_ARM))
 								E.droplimb(1)
-							for(var/datum/organ/external/r_arm/E in h.organs)
-								E.droplimb(2)
 						if(3)
 							if(h.species.name != "Tajaran") //someone who was made a catbeast by the dice can't become a different species by getting lucky
 								switch(pick(1,2,3))
@@ -227,9 +244,7 @@
 												h.regenerate_icons()
 											to_chat(user, "<span class=danger><B>You have been turned into a disgusting lizard! </span></B>")
 										else
-											for(var/datum/organ/external/l_arm/E in h.organs) //Someone who has already become a lizard can't get out of recieving a curse and so they lose their arms instead
-												E.droplimb(1)
-											for(var/datum/organ/external/r_arm/E in h.organs)
+											for(var/datum/organ/external/E in h.get_organs(LIMB_LEFT_ARM, LIMB_RIGHT_ARM)) //Someone who has already become a lizard can't get out of recieving a curse and so they lose their arms instead
 												E.droplimb(1)
 									if(2)
 										if(h.species.name != "Skrell")
@@ -237,9 +252,7 @@
 												h.regenerate_icons()
 											to_chat(user, "<span class=danger><B>You have been turned into a disgusting squidman! </span></B>")
 										else
-											for(var/datum/organ/external/l_arm/E in h.organs) //Someone who has already become a squid can't get out of recieving a curse and so they lose their arms instead
-												E.droplimb(1)
-											for(var/datum/organ/external/r_arm/E in h.organs)
+											for(var/datum/organ/external/E in h.get_organs(LIMB_LEFT_ARM, LIMB_RIGHT_ARM)) //Someone who has already become a squid can't get out of recieving a curse and so they lose their arms instead
 												E.droplimb(1)
 									if(3)
 										if(h.species.name != "Vox")
@@ -247,9 +260,7 @@
 												h.regenerate_icons()
 											to_chat(user, "<span class=danger><B>You have been turned into a dumb, diseased bird! </span></B>")
 										else
-											for(var/datum/organ/external/l_arm/E in h.organs) //Someone who is a vox can't get out of recieving a curse and so they lose their arms instead
-												E.droplimb(1)
-											for(var/datum/organ/external/r_arm/E in h.organs)
+											for(var/datum/organ/external/E in h.get_organs(LIMB_LEFT_ARM, LIMB_RIGHT_ARM))
 												E.droplimb(1)
 						if(4)
 							h.adjustBrainLoss(200)
@@ -309,6 +320,7 @@
 									new /obj/item/clothing/under/officeruniform(user.loc, user)
 									new /obj/item/clothing/suit/officercoat(user.loc, user)
 									new /obj/item/clothing/head/naziofficer(user.loc, user)
+									new /obj/item/clothing/shoes/jackboots(user.loc, user)
 								if(3)
 									new /obj/item/clothing/head/helmet/richard(user.loc, user)
 									new /obj/item/clothing/under/jacketsuit(user.loc, user)

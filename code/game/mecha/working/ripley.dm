@@ -7,6 +7,15 @@
 	max_temperature = 20000
 	health = 200
 	wreckage = /obj/effect/decal/mecha_wreckage/ripley
+	mech_sprites = list(
+		"ripley",
+		"ripley_glass",
+		"titan",
+		"ripley_flames_red",
+		"ripley_flames_blue",
+		"hivisripley"
+	)
+	paintable = 1
 
 /*
 /obj/mecha/working/ripley/New()
@@ -21,9 +30,15 @@
 	initial_icon = "firefighter"
 	max_temperature = 65000
 	health = 250
-	lights_power = 8
+	light_range_on = 10
+	light_brightness_on = 3
 	damage_absorption = list("fire"=0.5,"bullet"=0.8,"bomb"=0.5)
 	wreckage = /obj/effect/decal/mecha_wreckage/ripley/firefighter
+	paintable = 1
+	mech_sprites = list(
+		"firefighter",
+		"aluminizer"
+		)
 
 /obj/mecha/working/ripley/deathripley
 	desc = "OH SHIT IT'S THE DEATHSQUAD WE'RE ALL GONNA DIE"
@@ -32,14 +47,15 @@
 	initial_icon = "deathripley"
 	step_in = 2
 	opacity = 0
-	lights_power = 60
+	light_range_on = 12
+	light_brightness_on = 3
 	wreckage = /obj/effect/decal/mecha_wreckage/ripley/deathripley
 	step_energy_drain = 0
+	paintable = 0
 
 /obj/mecha/working/ripley/deathripley/New()
 	..()
-	var/obj/item/mecha_parts/mecha_equipment/ME = new /obj/item/mecha_parts/mecha_equipment/tool/safety_clamp
-	ME.attach(src)
+	new /obj/item/mecha_parts/mecha_equipment/tool/safety_clamp(src)
 	return
 
 /obj/mecha/working/ripley/mining

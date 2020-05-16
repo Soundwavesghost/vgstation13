@@ -9,20 +9,25 @@
 	origin_tech = Tc_MAGNETS + "=2"
 	mech_flags = null // So it can be scanned by the Device Analyser
 	clumsy_check = 0
+	advanced_tool_user_check = 0
+	nymph_check = 0
+	hulk_check = 0
+	golem_check = 0
 	var/charge_tick = 0
 	var/score = 0
+	var/last_disable_time = -1
 
 	icon_state = "bluetag"
 	fire_sound = 'sound/weapons/Laser.ogg'
 	var/laser_projectile = /obj/item/projectile/beam/lasertag/blue
 	var/taser_projectile = /obj/item/projectile/beam/lasertag/omni
-	var/needed_vest = /obj/item/clothing/suit/bluetag
+	var/needed_vest = /obj/item/clothing/suit/tag/bluetag
 
 /obj/item/weapon/gun/energy/tag/isHandgun()
 	return TRUE
 
 /obj/item/weapon/gun/energy/tag/proc/score()
-    playsound(get_turf(src), 'sound/weapons/quake.ogg', 60)
+    playsound(src, 'sound/weapons/quake.ogg', 60)
     score++
 
 /obj/item/weapon/gun/energy/tag/examine(mob/user)
@@ -46,13 +51,13 @@
 	icon_state = "bluetag"
 	laser_projectile = /obj/item/projectile/beam/lasertag/blue
 	taser_projectile = /obj/item/projectile/energy/tag/blue
-	needed_vest = /obj/item/clothing/suit/bluetag
+	needed_vest = /obj/item/clothing/suit/tag/bluetag
 
 /obj/item/weapon/gun/energy/tag/red
 	icon_state = "redtag"
 	laser_projectile = /obj/item/projectile/beam/lasertag/red
 	taser_projectile = /obj/item/projectile/energy/tag/red
-	needed_vest = /obj/item/clothing/suit/redtag
+	needed_vest = /obj/item/clothing/suit/tag/redtag
 
 /obj/item/weapon/gun/energy/tag/proc/makeLaser(var/mob/user)
 	projectile_type = laser_projectile
@@ -72,11 +77,23 @@
     else
         makeTaser(user)
 
-/obj/item/weapon/gun/energy/tag/special_check(var/mob/living/carbon/human/M)
-	if(ishuman(M))
-		if(istype(M.wear_suit, needed_vest))
-			return 1
-		to_chat(M, "<span class='warning'>You need to be wearing your laser tag vest!</span>")
+/obj/item/weapon/gun/energy/tag/special_check(var/mob/living/M)
+	var/obj/item/clothing/suit/tag/vest = get_tag_armor(M)
+	if(istype(vest, needed_vest))
+		var/obj/item/clothing/suit/tag/our_tag = vest
+		if (our_tag.my_laser_tag_game)
+			if (world.time < last_disable_time)
+				to_chat(M, "<span class='warning'>Your gun is currently disabled!</span>")
+				return 0
+			if ((our_tag.my_laser_tag_game.fire_mode == LT_FIREMODE_LASER) && (projectile_type != laser_projectile))
+				to_chat(M, "<span class='warning'>Your laser tag game requires you to play with lasers!</span>")
+				return 0
+			if ((our_tag.my_laser_tag_game.fire_mode == LT_FIREMODE_TASER) && (projectile_type != taser_projectile))
+				to_chat(M, "<span class='warning'>Your laser tag game requires you to play with tasers!</span>")
+				return 0
+			vest.player.total_shoots++
+		return 1
+	to_chat(M, "<span class='warning'>You need to be wearing your laser tag vest!</span>")
 	return 0
 
 /obj/item/weapon/gun/energy/tag/New()
@@ -98,3 +115,8 @@
 	power_supply.give(100)
 	update_icon()
 	return 1
+
+/obj/item/weapon/gun/energy/tag/proc/cooldown(var/time)
+	if (time > 0)
+		last_disable_time = world.time + (time SECONDS)
+

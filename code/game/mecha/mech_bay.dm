@@ -105,7 +105,7 @@
 	for(var/obj/item/weapon/stock_parts/SP in component_parts)
 		if(istype(SP, /obj/item/weapon/stock_parts/micro_laser))
 			lasercount += SP.rating-1
-	set_voltage(45+lasercount*10)
+	set_voltage(450+lasercount*100)
 
 /obj/machinery/mech_bay_recharge_port/proc/start_charge(var/obj/mecha/recharging_mecha)
 	if(stat&(NOPOWER|BROKEN))
@@ -150,13 +150,13 @@
 
 /datum/global_iterator/mech_bay_recharger
 	delay = 20
-	var/max_charge = 45
+	var/max_charge = 450
 	check_for_null = 0 //since port.stop_charge() must be called. The checks are made in process()
 
 /datum/global_iterator/mech_bay_recharger/process(var/obj/machinery/mech_bay_recharge_port/port, var/obj/mecha/mecha)
 	if(!port)
 		return 0
-	if(mecha && mecha in get_turf(port.recharge_floor))
+	if(mecha && (mecha in get_turf(port.recharge_floor)))
 		if(!mecha.cell)
 			return
 		var/delta = min(max_charge, mecha.cell.maxcharge - mecha.cell.charge)
@@ -168,7 +168,6 @@
 			port.stop_charge()
 	else
 		port.stop_charge()
-	return
 
 
 
@@ -194,7 +193,6 @@
 	if(recharge_port && autostart)
 		var/answer = recharge_port.start_charge(mecha)
 		if(answer)
-			recharge_port.set_voltage(voltage)
 			src.icon_state = initial(src.icon_state)+"_on"
 	return
 
@@ -206,7 +204,7 @@
 
 /obj/machinery/computer/mech_bay_power_console/power_change()
 	if(stat & BROKEN)
-		icon_state = initial(icon_state)+"_broken"
+		icon_state = initial(icon_state) +"_broken"
 		if(recharge_port)
 			recharge_port.stop_charge()
 	else if(powered())
@@ -251,15 +249,4 @@
 	output += "</ body></html>"
 	user << browse(output, "window=mech_bay_console")
 	onclose(user, "mech_bay_console")
-	return
-
-
-/obj/machinery/computer/mech_bay_power_console/Topic(href, href_list)
-	if(href_list["autostart"])
-		autostart = !autostart
-	if(href_list["voltage"])
-		voltage = text2num(href_list["voltage"])
-		if(recharge_port)
-			recharge_port.set_voltage(voltage)
-	updateUsrDialog()
 	return

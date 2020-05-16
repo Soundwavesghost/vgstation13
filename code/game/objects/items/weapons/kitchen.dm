@@ -28,7 +28,7 @@
 	attack_verb = list("attacks", "stabs", "pokes")
 	shrapnel_amount = 1
 	shrapnel_size = 2
-	shrapnel_type = "/obj/item/projectile/bullet/shrapnel"
+	shrapnel_type = /obj/item/projectile/bullet/shrapnel
 
 /obj/item/weapon/kitchen/utensil/New()
 	. = ..()
@@ -45,12 +45,30 @@
 	icon_state = "spoon"
 	attack_verb = list("attacks", "pokes", "hits")
 	melt_temperature = MELTPOINT_STEEL
+	var/bendable = TRUE
+	var/bent = FALSE
+
+/obj/item/weapon/kitchen/utensil/spoon/attack_self(mob/user)
+	if(!bendable || !(M_TK in user.mutations))
+		visible_message("[user] holds up [src] and stares at it intently. What a weirdo.")
+		return
+	bend(user)
+
+/obj/item/weapon/kitchen/utensil/spoon/proc/bend(mob/user)
+	visible_message(message = "<span class='warning'>Whoa, [user] looks at [src] and it bends like clay!</span>")
+	if(!bent)
+		bent = TRUE
+		icon_state = initial(icon_state) + "_bent"
+		return
+	bent = FALSE
+	icon_state = initial(icon_state)
 
 /obj/item/weapon/kitchen/utensil/spoon/plastic
 	name = "plastic spoon"
 	desc = "Super dull action!"
 	icon_state = "pspoon"
 	melt_temperature = MELTPOINT_PLASTIC
+	bendable = FALSE
 
 /*
  * Forks
@@ -111,6 +129,14 @@
 	if(!snack || !user || !istype(snack) || !istype(user))
 		return
 
+	if(!snack.edible_by_utensil)
+		to_chat(user, "<span class='notice'>It wouldn't make sense to put \the [snack.name] on a fork.</span>")
+		return
+
+	if(snack.food_flags & FOOD_LIQUID)
+		to_chat(user, "<span class='notice'>You can't eat that with a fork.</span>")
+		return
+
 	if(loaded_food)
 		to_chat(user, "<span class='notice'>You already have food on \the [src].</span>")
 		return
@@ -162,17 +188,18 @@
 	sharpness = 1.2
 	sharpness_flags = SHARP_TIP | SHARP_BLADE
 	melt_temperature = MELTPOINT_STEEL
+	hitsound = 'sound/weapons/bladeslice.ogg'
 
 /obj/item/weapon/kitchen/utensil/knife/suicide_act(mob/user)
 	to_chat(viewers(user), pick("<span class='danger'>[user] is slitting \his wrists with the [src.name]! It looks like \he's trying to commit suicide.</span>", \
 						"<span class='danger'>[user] is slitting \his throat with the [src.name]! It looks like \he's trying to commit suicide.</span>", \
 						"<span class='danger'>[user] is slitting \his stomach open with the [src.name]! It looks like \he's trying to commit seppuku.</span>"))
-	return (BRUTELOSS)
+	return (SUICIDE_ACT_BRUTELOSS)
 
 /obj/item/weapon/kitchen/utensil/knife/attack(target as mob, mob/living/user as mob)
 	if (clumsy_check(user) && prob(50))
 		to_chat(user, "<span class='warning'>You accidentally cut yourself with the [src].</span>")
-		user.take_organ_damage(20)
+		user.take_organ_damage(2 * force)
 		return
 	playsound(loc, 'sound/weapons/bladeslice.ogg', 50, 1, -1)
 	return ..()
@@ -185,6 +212,23 @@
 	throwforce = 1
 	sharpness = 0.8
 	melt_temperature = MELTPOINT_PLASTIC
+
+/obj/item/weapon/kitchen/utensil/knife/nazi
+	name = "nazi knife"
+	desc = "There's a svastika at the base of the blade. Powerful when thrown."
+	icon_state = "knifenazi"
+	siemens_coefficient = 1
+	sharpness = 1.5
+	force = 10.0
+	throwforce = 30
+	throw_speed = 3
+	throw_range = 7
+	w_class = W_CLASS_SMALL
+	starting_materials = list(MAT_IRON = 12000)
+	w_type = RECYK_METAL
+	melt_temperature = MELTPOINT_STEEL
+	origin_tech = Tc_MATERIALS + "=1"
+	attack_verb = list("slashes", "stabs", "slices", "tears", "rips", "dices", "cuts")
 
 /*
  * Kitchen knives
@@ -213,11 +257,11 @@
 	..()
 	if(user.is_in_modules(src))
 		return
-	if(istype(W, /obj/item/weapon/weldingtool))
+	if(iswelder(W))
 		var/obj/item/weapon/weldingtool/WT = W
-		if(WT.remove_fuel(0, user))
+		if(WT.remove_fuel(1, user))
 			to_chat(user, "You slice the handle off of \the [src].")
-			playsound(user, 'sound/items/Welder.ogg', 50, 1)
+			WT.playtoolsound(user, 50)
 			if(src.loc == user)
 				user.drop_item(src, force_drop = 1)
 				var/obj/item/weapon/metal_blade/I = new (get_turf(user))
@@ -225,14 +269,13 @@
 			else
 				new /obj/item/weapon/metal_blade(get_turf(src.loc))
 			qdel(src)
-		else
-			to_chat(user, "<span class='notice'>You need more welding fuel to complete this task.</span>")
+			return
 
 /obj/item/weapon/kitchen/utensil/knife/large/suicide_act(mob/user)
 	to_chat(viewers(user), pick("<span class='danger'>[user] is slitting \his wrists with the [src.name]! It looks like \he's trying to commit suicide.</span>", \
 						"<span class='danger'>[user] is slitting \his throat with the [src.name]! It looks like \he's trying to commit suicide.</span>", \
 						"<span class='danger'>[user] is slitting \his stomach open with the [src.name]! It looks like \he's trying to commit seppuku.</span>"))
-	return (BRUTELOSS)
+	return (SUICIDE_ACT_BRUTELOSS)
 
 /obj/item/weapon/kitchen/utensil/knife/large/ritual
 	name = "ritual knife"
@@ -267,7 +310,9 @@
 /obj/item/weapon/kitchen/utensil/knife/large/butch/meatcleaver
 	name = "meat cleaver"
 	icon_state = "mcleaver"
+	inhand_states = list("left_hand" = 'icons/mob/in-hand/left/newsprites_lefthand.dmi', "right_hand" = 'icons/mob/in-hand/right/newsprites_righthand.dmi')
 	desc = "A huge thing used for chopping and chopping up meat. This includes clowns and clown-by-products."
+	armor_penetration = 50
 	force = 25.0
 	throwforce = 15.0
 
@@ -277,6 +322,31 @@
 		L.Stun(5)
 		L.Knockdown(5)
 	return ..()
+
+
+/obj/item/weapon/kitchen/utensil/knife/large/butch/meatcleaver/attack(mob/M, mob/user)
+	if (!M.isDead())
+		..()
+	else
+		if (!ishuman(M))
+			return ..()
+		var/mob/living/carbon/human/H = M
+
+		H.drop_meat(H.loc)
+		--H.meatleft
+		H.loc.add_blood(src)
+
+		to_chat(user, "<span class='warning'>You hack off a chunk of meat from \the [H].</span>")
+		if(!H.meatleft)
+			H.attack_log += "\[[time_stamp()]\] Was chopped up into meat by <b>\the [key_name(M)]</b>"
+			user.attack_log += "\[[time_stamp()]\] Chopped up <b>\the [key_name(H)]</b> into meat</b>"
+			msg_admin_attack("\The [key_name(user)] chopped up \the [key_name(H)] into meat (<A HREF='?_src_=holder;adminplayerobservecoodjump=1;X=[user.x];Y=[user.y];Z=[user.z]'>JMP</a>)")
+			if(!iscarbon(user))
+				H.LAssailant = null
+			else
+				H.LAssailant = user
+			qdel(H)
+		return TRUE
 
 /*
  * Rolling Pins
@@ -310,7 +380,7 @@
 	else
 		M.LAssailant = user
 
-	var/t = user:zone_sel.selecting
+	var/t = user.zone_sel.selecting
 	if (t == LIMB_HEAD)
 		if(ishuman(M))
 			var/mob/living/carbon/human/H = M
@@ -371,6 +441,7 @@
 	if(clumsy_check(user) && prob(50))              //What if he's a clown?
 		to_chat(M, "<span class='warning'>You accidentally slam yourself with the [src]!</span>")
 		M.Knockdown(1)
+		M.Stun(1)
 		user.take_organ_damage(2)
 		if(prob(50))
 			playsound(M, 'sound/items/trayhit1.ogg', 50, 1)
@@ -400,6 +471,7 @@
 
 		if(prob(15))
 			M.Knockdown(3)
+			M.Stun(3)
 			M.take_organ_damage(3)
 		else
 			M.take_organ_damage(5)
@@ -471,6 +543,7 @@
 			M.take_organ_damage(8)
 			if(prob(30))
 				M.Knockdown(2)
+				M.Stun(2)
 				return
 			return
 /*
@@ -514,13 +587,7 @@
 	if(user.drop_item(W, user.loc))
 		W.forceMove(src)
 		carrying.Add(W)
-		var/list/params_list = params2list(params)
-		if(params_list.len)
-			var/icon/clicked = new/icon(icon, icon_state, dir)
-			var/clamp_x = clicked.Width() / 2
-			var/clamp_y = clicked.Height() / 2
-			W.pixel_x = Clamp(text2num(params_list["icon-x"]) - clamp_x, -clamp_x, clamp_x)
-			W.pixel_y = Clamp(text2num(params_list["icon-y"]) - clamp_y, -clamp_y, clamp_y)
+		W.setPixelOffsetsFromParams(params, user)
 		var/image/image = image(icon = null)
 		image.appearance = W.appearance
 		image.layer = W.layer + 30

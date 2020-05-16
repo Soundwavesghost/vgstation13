@@ -73,6 +73,8 @@
 	desc = "An empty bowl. Put some food in it to start making a soup."
 	icon = 'icons/obj/food_custom.dmi'
 	icon_state = "soup"
+	item_state = "bowl"
+	inhand_states = list("left_hand" = 'icons/mob/in-hand/left/newsprites_lefthand.dmi', "right_hand" = 'icons/mob/in-hand/right/newsprites_righthand.dmi')
 
 /obj/item/trash/bowl/attackby(obj/item/I,mob/user,params)
 	if(istype(I,/obj/item/stack/sheet/metal))
@@ -82,6 +84,13 @@
 		to_chat(user, "<span class='notice'>You fashion a crude mortar out of the wooden bowl and a metal sheet.</span>")
 		qdel(src)
 		user.put_in_hands(mortimer)
+	if(istype(I,/obj/item/stack/sheet/leather))
+		var/obj/item/stack/sheet/leather/L = I
+		L.use(1)
+		var/obj/item/device/instrument/drum/drum_makeshift/drumbowl = new(get_turf(src))
+		to_chat(user, "<span class='notice'>You fashion a crude drum out of the wooden bowl and a leather sheet.</span>")
+		qdel(src)
+		user.put_in_hands(drumbowl)
 	if(istype(I,/obj/item/weapon/reagent_containers/food/snacks))
 		if(!recursiveFood && istype(I, /obj/item/weapon/reagent_containers/food/snacks/customizable))
 			to_chat(user, "<span class='warning'>Sorry, no recursive food.</span>")
@@ -269,6 +278,7 @@
 	icon_state = "breadcustom"
 	slice_path = /obj/item/weapon/reagent_containers/food/snacks/customizable/slices/breadslice
 	slices_num = 5
+	storage_slots = 3
 
 /obj/item/weapon/reagent_containers/food/snacks/customizable/slices/breadslice
 	name = "slice"
@@ -281,6 +291,8 @@
 /obj/item/weapon/reagent_containers/food/snacks/customizable/cook/pie
 	name = "pie"
 	icon_state = "piecustom"
+	trash = /obj/item/trash/pietin
+	ingMax = 1
 
 /obj/item/weapon/reagent_containers/food/snacks/customizable/cook/cake
 	name = "cake"
@@ -288,6 +300,7 @@
 	icon_state = "cakecustom"
 	slice_path = /obj/item/weapon/reagent_containers/food/snacks/customizable/slices/cakeslicecustom
 	slices_num = 5
+	storage_slots = 3
 
 /obj/item/weapon/reagent_containers/food/snacks/customizable/slices/cakeslicecustom
 	name = "slice"

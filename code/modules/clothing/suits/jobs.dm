@@ -8,9 +8,9 @@
 	desc = "A hazard vest used in the recovery of bodies."
 	icon_state = "paramedic-vest"
 	item_state = "paramedic-vest"
-	allowed = list(/obj/item/device/analyzer,/obj/item/stack/medical,/obj/item/weapon/dnainjector,/obj/item/weapon/reagent_containers/dropper,/obj/item/weapon/reagent_containers/syringe,/obj/item/weapon/reagent_containers/hypospray,/obj/item/device/healthanalyzer,/obj/item/device/flashlight/pen,/obj/item/weapon/tank/emergency_oxygen,/obj/item/weapon/tank/emergency_nitrogen,/obj/item/device/radio,/obj/item/device/gps)
+	allowed = list(/obj/item/device/analyzer,/obj/item/stack/medical,/obj/item/weapon/dnainjector,/obj/item/weapon/reagent_containers/dropper,/obj/item/weapon/reagent_containers/syringe,/obj/item/weapon/reagent_containers/hypospray,/obj/item/device/healthanalyzer,/obj/item/device/flashlight/pen,/obj/item/weapon/tank/emergency_oxygen,/obj/item/weapon/tank/emergency_nitrogen,/obj/item/device/radio,/obj/item/device/gps, /obj/item/roller)
 	armor = list(melee = 0, bullet = 0, laser = 0, energy = 0, bomb = 0, bio = 10, rad = 10)
-	species_fit = list(VOX_SHAPED, GREY_SHAPED)
+	species_fit = list(VOX_SHAPED, GREY_SHAPED, INSECT_SHAPED)
 
 //Botonist
 /obj/item/clothing/suit/apron
@@ -20,8 +20,8 @@
 	item_state = "apron"
 	blood_overlay_type = "armor"
 	body_parts_covered = FULL_TORSO
-	allowed = list (/obj/item/weapon/reagent_containers/spray/plantbgone,/obj/item/device/analyzer/plant_analyzer,/obj/item/seeds,/obj/item/weapon/reagent_containers/glass/fertilizer,/obj/item/weapon/wirecutters/clippers,/obj/item/weapon/minihoe)
-	species_fit = list(VOX_SHAPED)
+	allowed = list (/obj/item/weapon/reagent_containers/spray/plantbgone,/obj/item/device/analyzer/plant_analyzer,/obj/item/seeds,/obj/item/weapon/reagent_containers/glass,/obj/item/weapon/wirecutters/clippers,/obj/item/weapon/minihoe)
+	species_fit = list(VOX_SHAPED, INSECT_SHAPED)
 
 //Captain
 /obj/item/clothing/suit/captunic
@@ -71,17 +71,18 @@
 	permeability_coefficient = 0.50
 	body_parts_covered = FULL_TORSO|ARMS
 	allowed = list (/obj/item/weapon/kitchen/utensil/knife/large,/obj/item/weapon/kitchen/utensil/knife/large/butch)
-	species_fit = list(VOX_SHAPED)
+	species_fit = list(VOX_SHAPED, INSECT_SHAPED)
+	clothing_flags = ONESIZEFITSALL
 
 //Chef
 /obj/item/clothing/suit/chef/classic
-	name = "A classic chef's apron."
+	name = "classic chef's apron"
 	desc = "A basic, dull, white chef's apron."
 	icon_state = "apronchef"
 	item_state = "apronchef"
 	blood_overlay_type = "armor"
 	body_parts_covered = FULL_TORSO
-	species_fit = list(VOX_SHAPED)
+	species_fit = list(VOX_SHAPED, INSECT_SHAPED)
 
 //Detective
 /obj/item/clothing/suit/storage/det_suit
@@ -94,7 +95,7 @@
 	allowed = list(/obj/item/weapon/tank/emergency_oxygen,/obj/item/weapon/tank/emergency_nitrogen, /obj/item/device/flashlight,/obj/item/weapon/gun/energy,/obj/item/weapon/gun/projectile,/obj/item/ammo_storage,/obj/item/ammo_casing,/obj/item/weapon/melee/baton,/obj/item/weapon/handcuffs,/obj/item/weapon/storage/fancy/cigarettes,/obj/item/weapon/lighter,/obj/item/device/detective_scanner,/obj/item/device/taperecorder)
 	clothing_flags = ONESIZEFITSALL
 	armor = list(melee = 50, bullet = 10, laser = 25, energy = 10, bomb = 0, bio = 0, rad = 0)
-	species_fit = list(VOX_SHAPED)
+	species_fit = list(VOX_SHAPED, INSECT_SHAPED)
 
 /obj/item/clothing/suit/storage/det_suit/noir
 	desc = "Ah, your trusty coat. There's a few tears here and there, giving it a more timely look. Or at least, that's what you told yourself when you found out gettin' it repaired would set you back 200 credits."
@@ -119,6 +120,57 @@
 	desc = "A blue forensics technician jacket."
 	icon_state = "forensics_blue"
 
+/obj/item/clothing/suit/secdressjacket
+	body_parts_covered = FULL_TORSO|ARMS
+
+//Head of Security
+/obj/item/clothing/suit/secdressjacket/hosblue
+	name = "\improper HoS' blue dress jacket"
+	desc = "A blue dress jacket for the Head of Security."
+	icon_state = "hosbluejacket"
+
+/obj/item/clothing/suit/secdressjacket/hosnavy
+	name = "\improper HoS' navy dress jacket"
+	desc = "A navy dress jacket for the Head of Security."
+	icon_state = "hosdnavyjacket"
+
+/obj/item/clothing/suit/secdressjacket/hostan
+	name = "\improper HoS' tan dress jacket"
+	desc = "A tan dress jacket for the Head of Security."
+	icon_state = "hostanjacket"
+
+//Warden
+/obj/item/clothing/suit/secdressjacket/wardenblue
+	name = "warden's blue dress jacket"
+	desc = "A blue dress jacket for the warden."
+	icon_state = "wardenbluejacket"
+
+/obj/item/clothing/suit/secdressjacket/wardennavy
+	name = "warden's navy dress jacket"
+	desc = "A navy dress jacket for the warden."
+	icon_state = "wardendnavyjacket"
+
+/obj/item/clothing/suit/secdressjacket/wardentan
+	name = "warden's tan dress jacket"
+	desc = "A tan dress jacket for the warden."
+	icon_state = "wardentanjacket"
+
+//Security officer
+/obj/item/clothing/suit/secdressjacket/officerblue
+	name = "officer's blue dress jacket"
+	desc = "A blue dress jacket for a security officer."
+	icon_state = "officerbluejacket"
+
+/obj/item/clothing/suit/secdressjacket/officernavy
+	name = "officer's navy dress jacket"
+	desc = "A navy dress jacket for a security officer."
+	icon_state = "officerdnavyjacket"
+
+/obj/item/clothing/suit/secdressjacket/officertan
+	name = "officer's tan dress jacket"
+	desc = "A tan dress jacket for a security officer."
+	icon_state = "officertanjacket"
+
 //Engineering
 /obj/item/clothing/suit/storage/hazardvest
 	name = "hazard vest"
@@ -126,10 +178,31 @@
 	icon_state = "hazard"
 	item_state = "hazard"
 	blood_overlay_type = "armor"
-	allowed = list (/obj/item/device/analyzer, /obj/item/device/flashlight, /obj/item/device/multitool, /obj/item/device/radio, /obj/item/device/t_scanner, \
-	/obj/item/weapon/crowbar, /obj/item/weapon/screwdriver, /obj/item/weapon/weldingtool, /obj/item/weapon/wirecutters, /obj/item/weapon/wrench, \
-	/obj/item/weapon/tank/emergency_oxygen,  /obj/item/weapon/tank/emergency_nitrogen, /obj/item/device/device_analyser)
-	species_fit = list(VOX_SHAPED)
+	allowed = list (
+		/obj/item/device/analyzer,
+		/obj/item/device/flashlight,
+		/obj/item/device/multitool,
+		/obj/item/device/radio,
+		/obj/item/device/t_scanner,
+		/obj/item/weapon/crowbar,
+		/obj/item/weapon/screwdriver,
+		/obj/item/weapon/weldingtool,
+		/obj/item/weapon/wirecutters,
+		/obj/item/weapon/wrench,
+		/obj/item/weapon/tank/emergency_oxygen,
+		/obj/item/weapon/tank/emergency_nitrogen,
+		/obj/item/device/device_analyser,
+		/obj/item/device/rcd,
+		/obj/item/weapon/rcs,
+		/obj/item/weapon/storage/bag/clipboard,
+		/obj/item/weapon/folder,
+		/obj/item/weapon/stamp,
+		/obj/item/device/destTagger,
+		/obj/item/weapon/hand_labeler,
+		/obj/item/device/flashlight,
+		/obj/item/stack/package_wrap,
+		/obj/item/weapon/card/debit)
+	species_fit = list(VOX_SHAPED, INSECT_SHAPED)
 
 //Lawyer
 /obj/item/clothing/suit/storage/lawyer/bluejacket
@@ -138,12 +211,21 @@
 	icon_state = "suitjacket_blue_open"
 	item_state = "suitjacket_blue_open"
 	blood_overlay_type = "coat"
+	species_fit = list(INSECT_SHAPED)
 
 /obj/item/clothing/suit/storage/lawyer/purpjacket
 	name = "Purple Suit Jacket"
 	desc = "A snappy dress jacket."
 	icon_state = "suitjacket_purp"
 	item_state = "suitjacket_purp"
+	blood_overlay_type = "coat"
+
+//Bridge Officer
+/obj/item/clothing/suit/storage/lawyer/bridgeofficer
+	name = "bridge officer dress jacket"
+	desc = "A classy dress jacket, for special occasions."
+	icon_state = "bridgeofficer_jacket"
+	item_state = "bridgeofficer_jacket"
 	blood_overlay_type = "coat"
 
 //Internal Affairs
@@ -153,6 +235,7 @@
 	icon_state = "ia_jacket_open"
 	item_state = "ia_jacket"
 	blood_overlay_type = "coat"
+	species_fit = list(INSECT_SHAPED)
 
 	verb/toggle()
 		set name = "Toggle Coat Buttons"
@@ -182,7 +265,7 @@
 	item_state = "fr_jacket"
 	blood_overlay_type = "armor"
 	allowed = list(/obj/item/stack/medical, /obj/item/weapon/reagent_containers/dropper, /obj/item/weapon/reagent_containers/hypospray, /obj/item/weapon/reagent_containers/syringe, \
-	/obj/item/device/healthanalyzer, /obj/item/device/flashlight, /obj/item/device/radio, /obj/item/weapon/tank/emergency_oxygen,/obj/item/weapon/tank/emergency_nitrogen)
+	/obj/item/device/healthanalyzer, /obj/item/device/flashlight, /obj/item/device/radio, /obj/item/weapon/tank/emergency_oxygen,/obj/item/weapon/tank/emergency_nitrogen, /obj/item/roller)
 
 	verb/toggle()
 		set name = "Toggle Jacket Buttons"
@@ -207,8 +290,10 @@
 	desc = "They suspend the illusion of the mime's play."
 	icon = 'icons/obj/clothing/belts.dmi'
 	icon_state = "suspenders"
+	clothing_flags = ONESIZEFITSALL
 	blood_overlay_type = "armor"
 	body_parts_covered = 0
+	species_fit = list(INSECT_SHAPED)
 
 //Head of Personnell
 /obj/item/clothing/suit/storage/Hop_Coat
@@ -216,7 +301,39 @@
 	desc = "A slightly armoured greatcoat. It looks like it's mostly ceremonial."
 	icon_state = "HoP_Coat"
 	item_state = "HoP_Coat"
+	species_fit = list(INSECT_SHAPED)
 	blood_overlay_type = "coat"
 	body_parts_covered = ARMS|LEGS|FULL_TORSO|IGNORE_INV
 	allowed = list(/obj/item/weapon/tank/emergency_oxygen,/obj/item/weapon/tank/emergency_nitrogen, /obj/item/device/flashlight,/obj/item/weapon/gun/energy,/obj/item/weapon/gun/projectile,/obj/item/ammo_storage,/obj/item/ammo_casing,/obj/item/weapon/melee/baton,/obj/item/weapon/handcuffs,/obj/item/weapon/storage/fancy/cigarettes,/obj/item/weapon/lighter,/obj/item/device/detective_scanner,/obj/item/device/taperecorder)
 	armor = list(melee = 50, bullet = 10, laser = 25, energy = 10, bomb = 0, bio = 0, rad = 0)
+
+//Syndicate exec
+/obj/item/clothing/suit/storage/syndicateexec
+	name = "syndicate executive jacket"
+	desc = "A flash black jacket, it seems oddly heavy."
+	icon_state = "ia_jacket_open"
+	item_state = "ia_jacket"
+	blood_overlay_type = "coat"
+	body_parts_covered = ARMS|LEGS|FULL_TORSO|IGNORE_INV
+	allowed = list(/obj/item/weapon/tank/emergency_oxygen,/obj/item/weapon/tank/emergency_nitrogen, /obj/item/device/flashlight,/obj/item/weapon/gun/energy,/obj/item/weapon/gun/projectile,/obj/item/ammo_storage,/obj/item/ammo_casing,/obj/item/weapon/melee/baton,/obj/item/weapon/handcuffs,/obj/item/weapon/storage/fancy/cigarettes,/obj/item/weapon/lighter,/obj/item/device/detective_scanner,/obj/item/device/taperecorder)
+	armor = list(melee = 50, bullet = 10, laser = 25, energy = 10, bomb = 0, bio = 0, rad = 0)
+
+/obj/item/clothing/suit/storage/syndicateexec/verb/toggle()
+	set name = "Toggle Coat Buttons"
+	set category = "Object"
+	set src in usr
+
+	if(usr.incapacitated())
+		return 0
+
+	switch(icon_state)
+		if("ia_jacket_open")
+			src.icon_state = "ia_jacket"
+			to_chat(usr, "You button up the jacket.")
+		if("ia_jacket")
+			src.icon_state = "ia_jacket_open"
+			to_chat(usr, "You unbutton the jacket.")
+		else
+			to_chat(usr, "You attempt to button-up the velcro on your [src], before promptly realising how retarded you are.")
+			return
+	usr.update_inv_wear_suit()	//so our overlays update

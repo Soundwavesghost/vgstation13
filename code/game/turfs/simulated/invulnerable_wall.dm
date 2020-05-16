@@ -25,7 +25,7 @@
 		var/obj/item/weapon/solder/S = W
 		if(!S.remove_fuel(bullet_marks*2,user))
 			return
-		playsound(loc, 'sound/items/Welder.ogg', 100, 1)
+		S.playtoolsound(loc, 100)
 		to_chat(user, "<span class='notice'>You remove the bullet marks with \the [W].</span>")
 		bullet_marks = 0
 		icon = initial(icon)
@@ -56,8 +56,17 @@
 /turf/simulated/wall/invulnerable/ex_act(severity)
 	return // :^)
 
+/turf/simulated/wall/invulnerable/attack_animal()
+	return
+
 /turf/simulated/wall/invulnerable/ice
 	name = "blue ice wall"
 	desc = "The incredible compressive forces that formed this sturdy ice wall gave it a blue color."
 	icon_state = "ice"
 	walltype = "ice"
+
+/turf/simulated/wall/invulnerable/r_wall
+	name = "reinforced wall"
+	desc = "A huge chunk of reinforced metal and anchored rods used to seperate rooms and keep all but the most equipped crewmen out."
+	icon_state = "r_wall"
+	walltype = "rwall"
